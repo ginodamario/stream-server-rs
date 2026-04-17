@@ -1,3 +1,4 @@
+#![allow(unused)]
 use crossbeam::channel;
 use gst::{MessageType, prelude::*};
 use gstreamer as gst;
@@ -8,8 +9,8 @@ use thiserror::Error;
 pub enum Error {
     #[error("Init: {0}")]
     Init(InnerError),
-    #[error("Create Elements: {0}")]
-    CreateElements(InnerError),
+    #[error("Creating Pipeline: {0}")]
+    CreatingPipeline(InnerError),
     #[error("Join")]
     Join,
 }
@@ -22,26 +23,14 @@ pub enum InnerError {
     GlibBoolError(gstreamer::glib::BoolError),
 }
 
-struct MainElements {
+struct MainSrcElements {
     src: gst::Element,
     caps: gst::Element,
     queue: gst::Element,
     watchdog: gst::Element,
 }
 
-struct DownElements {
-    src: gst::Element,
-    caps: gst::Element,
-    queue: gst::Element,
-    watchdog: gst::Element,
-}
-
-struct Elements {
-    main: MainElements,
-    down: DownElements,
-}
-
-impl MainElements {
+impl MainSrcElements {
     fn add_to_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         pipeline
             .add_many([&self.src, &self.caps, &self.queue, &self.watchdog])
@@ -49,11 +38,31 @@ impl MainElements {
     }
 }
 
-impl DownElements {
+struct DownSrcElements {
+    src: gst::Element,
+    caps: gst::Element,
+    queue: gst::Element,
+    watchdog: gst::Element,
+}
+
+impl DownSrcElements {
     fn add_to_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         pipeline
             .add_many([&self.src, &self.caps, &self.queue, &self.watchdog])
             .map_err(InnerError::GlibBoolError)
+    }
+}
+
+struct Elements {
+    main: MainSrcElements,
+    down: DownSrcElements,
+}
+
+impl Elements {
+    fn add_to_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
+        self.main.add_to_pipeline(pipeline)?;
+        self.down.add_to_pipeline(pipeline)?;
+        Ok(())
     }
 }
 
@@ -69,7 +78,16 @@ impl GstThread {
         let handle = thread::spawn(move || {
             gst::init().map_err(|e| Error::Init(InnerError::GlibError(e)))?;
 
-            let elements = Self::create_element().map_err(|e| Error::CreateElements(e))?;
+            let elements = Self::create_element().map_err(|e| Error::CreatingPipeline(e))?;
+
+            let pipeline = gst::Pipeline::with_name("test-pipeline");
+            elements
+                .add_to_pipeline(&pipeline)
+                .map_err(|e| Error::CreatingPipeline(e))?;
+
+            let main = &elements.main;
+            // gst::Element::link_many([main.src, main.caps, main.queue, main.watchdog, ])
+            //     .expect("Elements could not be linked");
 
             Ok(())
         });
@@ -107,7 +125,7 @@ impl GstThread {
             .build()
             .map_err(InnerError::GlibBoolError)?;
 
-        let main_elements = MainElements {
+        let main_elements = MainSrcElements {
             src,
             caps,
             queue,
@@ -139,7 +157,7 @@ impl GstThread {
             .build()
             .map_err(InnerError::GlibBoolError)?;
 
-        let down_elements = DownElements {
+        let down_elements = DownSrcElements {
             src,
             caps,
             queue,
