@@ -1,0 +1,10 @@
+[package]
+name = "stream_server_rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.102"
+crossbeam = "0.8.4"
+gstreamer = "0.25.1"
+thiserror = "2.0.18"
