@@ -4,8 +4,18 @@ use gst::{MessageType, prelude::*};
 use gstreamer as gst;
 use std::thread::{self, JoinHandle};
 
-use crate::gst_elements::{DownSrcElements, Elements, MainSrcElements};
+use crate::gst_elements::{DownSrcElements, Elements, MainSrcElements, Sink};
 use crate::gst_error::{Error, InnerError};
+
+enum Source {
+    Main,
+    Down,
+}
+
+enum Cmd {
+    None,
+    Select(Source),
+}
 
 pub struct GstThread {
     handle: JoinHandle<Result<(), Error>>,
@@ -17,37 +27,65 @@ impl GstThread {
         // let (send_to_thread, recv_to_thread) = channel::unbounded();
 
         let handle = thread::spawn(move || {
-            gst::init().map_err(|e| Error::Init(InnerError::GlibError(e)))?;
+            gst::init().map_err(|e| Error::Init(InnerError::Glib(e)))?;
 
-            let elements = Self::create_element().map_err(Error::CreatingPipeline)?;
+            let elements = Self::create_element().map_err(Error::Pipeline)?;
 
             let pipeline = gst::Pipeline::with_name("test-pipeline");
             elements
                 .add_to_pipeline(&pipeline)
-                .map_err(Error::CreatingPipeline)?;
+                .map_err(Error::Pipeline)?;
 
             let main = &elements.main;
             let down = &elements.down;
             let main_sink = &elements.main_sink;
-            gst::Element::link_many([
-                &main.src,
-                &main.caps,
-                &main.queue,
-                &main.watchdog,
-                &main_sink.select,
-            ])
-            .map_err(|e| Error::Init(InnerError::GlibBoolError(e)))?;
-            gst::Element::link_many([
-                &down.src,
-                &down.caps,
-                &down.queue,
-                &down.watchdog,
-                &main_sink.select,
-            ])
-            .map_err(|e| Error::Init(InnerError::GlibBoolError(e)))?;
-            gst::Element::link_many([&main_sink.select, &main_sink.sink])
-                .map_err(|e| Error::Init(InnerError::GlibBoolError(e)))?;
-            // TODO: Request pad from selector instead.
+
+            gst::Element::link_many([&main.src, &main.caps, &main.queue, &main.watchdog])
+                .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
+            gst::Element::link_many([&down.src, &down.caps, &down.queue, &down.watchdog])
+                .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
+
+            gst::Element::link_many([&main_sink.selector, &main_sink.sink])
+                .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
+
+            let sel_pad_0 =
+                main_sink
+                    .selector
+                    .request_pad_simple("sink_%u")
+                    .ok_or(Error::LinkStr(
+                        "Linking request main select pad 0".to_string(),
+                    ))?;
+            let sel_pad_1 =
+                main_sink
+                    .selector
+                    .request_pad_simple("sink_%u")
+                    .ok_or(Error::LinkStr(
+                        "Linking request main select pad 1".to_string(),
+                    ))?;
+
+            let main_watchdog_src = main
+                .watchdog
+                .static_pad("src")
+                .ok_or(Error::LinkStr("Get main watchdog src pad".to_string()))?;
+            let down_watchdog_src = down
+                .watchdog
+                .static_pad("src")
+                .ok_or(Error::LinkStr("Get pip watchdog src pad".to_string()))?;
+
+            main_watchdog_src
+                .link(&sel_pad_0)
+                .map_err(|e| Error::Link(InnerError::Link(e)))?;
+            down_watchdog_src
+                .link(&sel_pad_1)
+                .map_err(|e| Error::Link(InnerError::Link(e)))?;
+
+            main_sink.selector.set_property("active-pad", sel_pad_0);
+
+            pipeline
+                .set_state(gst::State::Playing)
+                .map_err(|e| Error::StateChange(InnerError::StateChange(e)))?;
+
+            let bus = pipeline.bus().ok_or(Error::Pipeline(InnerError::Bus))?;
 
             Ok(())
         });
@@ -65,7 +103,7 @@ impl GstThread {
             .property_from_str("pattern", "smpte")
             .property_from_str("is-live", "true")
             .build()
-            .map_err(InnerError::GlibBoolError)?;
+            .map_err(InnerError::GlibBool)?;
         let caps = gst::Caps::builder("video/x-raw")
             .field("format", "NV12")
             .field("width", 1920)
@@ -75,15 +113,15 @@ impl GstThread {
         let caps = gst::ElementFactory::make("capsfilter")
             .property("caps", &caps)
             .build()
-            .map_err(InnerError::GlibBoolError)?;
+            .map_err(InnerError::GlibBool)?;
         let queue = gst::ElementFactory::make("queue")
             .name("main_queue")
             .build()
-            .map_err(InnerError::GlibBoolError)?;
+            .map_err(InnerError::GlibBool)?;
         let watchdog = gst::ElementFactory::make("watchdog")
             .name("main_watchdog")
             .build()
-            .map_err(InnerError::GlibBoolError)?;
+            .map_err(InnerError::GlibBool)?;
 
         let main_elements = MainSrcElements {
             src,
@@ -115,7 +153,7 @@ impl GstThread {
         let watchdog = gst::ElementFactory::make("watchdog")
             .name("down_watchdog")
             .build()
-            .map_err(InnerError::GlibBoolError)?;
+            .map_err(InnerError::GlibBool)?;
 
         let down_elements = DownSrcElements {
             src,
@@ -124,9 +162,21 @@ impl GstThread {
             watchdog,
         };
 
+        let selector = gst::ElementFactory::make("input-selector")
+            .name("selector")
+            .build()
+            .map_err(InnerError::GlibBool)?;
+        let sink = gst::ElementFactory::make("autovideosink")
+            .name("sink")
+            .build()
+            .map_err(InnerError::GlibBool)?;
+
+        let main_sink = Sink { selector, sink };
+
         Ok(Elements {
             main: main_elements,
             down: down_elements,
+            main_sink,
         })
     }
 }

@@ -14,7 +14,7 @@ impl MainSrcElements {
     pub(super) fn add_to_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         pipeline
             .add_many([&self.src, &self.caps, &self.queue, &self.watchdog])
-            .map_err(InnerError::GlibBoolError)
+            .map_err(InnerError::GlibBool)
     }
 }
 
@@ -29,20 +29,20 @@ impl DownSrcElements {
     pub(super) fn add_to_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         pipeline
             .add_many([&self.src, &self.caps, &self.queue, &self.watchdog])
-            .map_err(InnerError::GlibBoolError)
+            .map_err(InnerError::GlibBool)
     }
 }
 
-pub(super) struct MainSink {
-    pub(super) select: gst::Element,
+pub(super) struct Sink {
+    pub(super) selector: gst::Element,
     pub(super) sink: gst::Element,
 }
 
-impl MainSink {
+impl Sink {
     pub(super) fn add_to_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         pipeline
-            .add_many([&self.select, &self.sink])
-            .map_err(InnerError::GlibBoolError)?;
+            .add_many([&self.selector, &self.sink])
+            .map_err(InnerError::GlibBool)?;
         Ok(())
     }
 }
@@ -50,7 +50,8 @@ impl MainSink {
 pub(super) struct Elements {
     pub(super) main: MainSrcElements,
     pub(super) down: DownSrcElements,
-    pub(super) main_sink: MainSink,
+    pub(super) main_sink: Sink,
+    // pub(super) pip_sink: Sink,
 }
 
 impl Elements {
@@ -58,6 +59,7 @@ impl Elements {
         self.main.add_to_pipeline(pipeline)?;
         self.down.add_to_pipeline(pipeline)?;
         self.main_sink.add_to_pipeline(pipeline)?;
+        // self.pip_sink.add_to_pipeline(pipeline)?;
         Ok(())
     }
 }
