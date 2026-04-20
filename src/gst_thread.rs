@@ -87,9 +87,46 @@ impl GstThread {
 
             let bus = pipeline.bus().ok_or(Error::Pipeline(InnerError::Bus))?;
 
+            while (true) {
+                let msg = bus.timed_pop_filtered(
+                    gst::ClockTime::from_mseconds(100),
+                    &[MessageType::Error, MessageType::Eos],
+                );
+
+                use gst::MessageView;
+                match msg {
+                    Some(msg) => match msg.view() {
+                        MessageView::Error(err) => {
+                            if let Some(obj) = err.src()
+                                && let Some(element) = obj.downcast_ref::<gst::Element>()
+                                && element.has_as_ancestor(&main.watchdog)
+                            {
+                                if element.has_as_ancestor(&main.watchdog) {
+                                    println!("Watchdog Main Error");
+                                } else if element.has_as_ancestor(&down.watchdog) {
+                                    println!("Watchdog Down Error");
+                                }
+                                // Don't break.
+                            } else {
+                                eprintln!(
+                                    "Error recieved from element {:?}: {}",
+                                    err.src().map(|s| s.path_string()),
+                                    err.error()
+                                );
+                                eprintln!("Debugging information: {:?}", err.debug());
+                                break;
+                            }
+                        }
+                        MessageView::Eos(_) => {
+                            println!("eos");
+                        }
+                        _ => {}
+                    },
+                    None => {}
+                }
+            }
             Ok(())
         });
-
         Self { handle }
     }
 
