@@ -28,6 +28,18 @@ fn main() -> Result<()> {
 
         let cmd = str::from_utf8(&buf[..n]).unwrap_or("");
         println!("cmd: {}", cmd.trim());
+
+        let split: Vec<&str> = cmd.split_whitespace().collect();
+        if split.len() == 2 {
+            if split[0] == "sel" {
+                if split[1] == "main" {
+                    thread.send_cmd(gst_thread::Cmd::Select(gst_thread::Source::Main));
+                } else if split[1] == "down" {
+                    thread.send_cmd(gst_thread::Cmd::Select(gst_thread::Source::Down));
+                }
+            }
+        }
+        if cmd.starts_with("sel") {}
     }
 
     println!("joining threads");

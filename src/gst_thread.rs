@@ -7,24 +7,25 @@ use std::thread::{self, JoinHandle};
 use crate::gst_elements::{DownSrcElements, Elements, MainSrcElements, Sink};
 use crate::gst_error::{Error, InnerError};
 
-enum Source {
+pub enum Source {
     Main,
     Down,
 }
 
-enum Cmd {
+pub enum Cmd {
     None,
     Select(Source),
 }
 
 pub struct GstThread {
     handle: JoinHandle<Result<(), Error>>,
+    send_to_thread: channel::Sender<Cmd>,
 }
 
 impl GstThread {
     pub fn start() -> Self {
         // let (send_from_thread, recv_from_thread) = channel::unbounded();
-        // let (send_to_thread, recv_to_thread) = channel::unbounded();
+        let (send_to_thread, recv_to_thread) = channel::unbounded();
 
         let handle = thread::spawn(move || {
             gst::init().map_err(|e| Error::Init(InnerError::Glib(e)))?;
@@ -79,7 +80,7 @@ impl GstThread {
                 .link(&sel_pad_1)
                 .map_err(|e| Error::Link(InnerError::Link(e)))?;
 
-            main_sink.selector.set_property("active-pad", sel_pad_0);
+            main_sink.selector.set_property("active-pad", &sel_pad_0);
 
             pipeline
                 .set_state(gst::State::Playing)
@@ -122,12 +123,31 @@ impl GstThread {
                         }
                         _ => {}
                     },
-                    None => {}
+                    None => {
+                        let cmd = recv_to_thread.try_recv().unwrap_or(Cmd::None);
+                        match cmd {
+                            Cmd::None => {}
+                            Cmd::Select(source) => {
+                                let pad = match source {
+                                    Source::Main => &sel_pad_0,
+                                    Source::Down => &sel_pad_1,
+                                };
+                                elements.main_sink.selector.set_property("active-pad", pad);
+                            }
+                        }
+                    }
                 }
             }
             Ok(())
         });
-        Self { handle }
+        Self {
+            handle,
+            send_to_thread,
+        }
+    }
+
+    pub fn send_cmd(&self, cmd: Cmd) {
+        let _ = self.send_to_thread.send(cmd);
     }
 
     pub fn join(self) -> Result<(), Error> {
