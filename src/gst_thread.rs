@@ -15,6 +15,8 @@ pub enum Source {
 pub enum Cmd {
     None,
     Select(Source),
+    Stop(Source),
+    Start(Source),
 }
 
 pub struct GstThread {
@@ -134,6 +136,11 @@ impl GstThread {
                                 };
                                 elements.main_sink.selector.set_property("active-pad", pad);
                             }
+                            Cmd::Stop(source) => match source {
+                                Source::Main => elements.main.src.set_state(gst::State::Null),
+                                Source::Down => todo!(),
+                            },
+                            Cmd::Start(source) => todo!(),
                         }
                     }
                 }
