@@ -43,9 +43,9 @@ impl GstThread {
             let down = &elements.down;
             let main_sink = &elements.main_sink;
 
-            gst::Element::link_many([&main.src, &main.caps, &main.queue, &main.watchdog])
+            gst::Element::link_many([&main.src, &main.caps, &main.watchdog, &main.queue])
                 .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
-            gst::Element::link_many([&down.src, &down.caps, &down.queue, &down.watchdog])
+            gst::Element::link_many([&down.src, &down.caps, &down.watchdog, &down.queue])
                 .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
 
             gst::Element::link_many([&main_sink.selector, &main_sink.sink])
@@ -66,19 +66,19 @@ impl GstThread {
                         "Linking request main select pad 1".to_string(),
                     ))?;
 
-            let main_watchdog_src = main
-                .watchdog
+            let main_queue_src = main
+                .queue
                 .static_pad("src")
                 .ok_or(Error::LinkStr("Get main watchdog src pad".to_string()))?;
-            let down_watchdog_src = down
-                .watchdog
+            let down_queue_src = down
+                .queue
                 .static_pad("src")
                 .ok_or(Error::LinkStr("Get pip watchdog src pad".to_string()))?;
 
-            main_watchdog_src
+            main_queue_src
                 .link(&sel_pad_0)
                 .map_err(|e| Error::Link(InnerError::Link(e)))?;
-            down_watchdog_src
+            down_queue_src
                 .link(&sel_pad_1)
                 .map_err(|e| Error::Link(InnerError::Link(e)))?;
 
@@ -105,10 +105,15 @@ impl GstThread {
                             {
                                 if element.has_as_ancestor(&main.watchdog) {
                                     println!("Watchdog Main Error");
-                                    elements.main_sink.selector.set_property("active-pad", &sel_pad_1);
-                                    elements.main.watchdog.unlink(&elements.main_sink.selector);
+                                    // elements.main_sink.selector.set_property("active-pad", &sel_pad_1);
+                                    // let queue_src_pad = elements.main.queue.static_pad("src").unwrap();
+                                    // let watch_sink_pad = elements.main.watchdog.static_pad("sink").unwrap();
+                                    // queue_src_pad.unlink(&watch_sink_pad);
+                                    // elements.main.watchdog.unlink(&elements.main_sink.selector);
                                 } else if element.has_as_ancestor(&down.watchdog) {
                                     println!("Watchdog Down Error");
+                                    // elements.main_sink.selector.set_property("active-pad", &sel_pad_0);
+                                    // elements.down.watchdog.unlink(&elements.main_sink.selector);
                                 }
                                 // Don't break.
                             } else {
@@ -193,6 +198,7 @@ impl GstThread {
         // TODO: Try leaky queue.
         let queue = gst::ElementFactory::make("queue")
             .name("main_queue")
+            .property_from_str("leaky", "downstream")
             .build()
             .map_err(InnerError::GlibBool)?;
         let watchdog = gst::ElementFactory::make("watchdog")
@@ -225,6 +231,7 @@ impl GstThread {
             .expect("Could not create caps element.");
         let queue = gst::ElementFactory::make("queue")
             .name("down_queue")
+            .property_from_str("leaky", "downstream")
             .build()
             .expect("Could not create queue element.");
         let watchdog = gst::ElementFactory::make("watchdog")
@@ -243,12 +250,17 @@ impl GstThread {
             .name("selector")
             .build()
             .map_err(InnerError::GlibBool)?;
+        let queue = gst::ElementFactory::make("queue")
+            .name("down_queue")
+            .property_from_str("leaky", "downstream")
+            .build()
+            .expect("Could not create queue element.");
         let sink = gst::ElementFactory::make("autovideosink")
             .name("sink")
             .build()
             .map_err(InnerError::GlibBool)?;
 
-        let main_sink = Sink { selector, sink };
+        let main_sink = Sink { selector, queue, sink };
 
         Ok(Elements {
             main: main_elements,

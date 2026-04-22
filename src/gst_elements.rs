@@ -35,6 +35,7 @@ impl DownSrcElements {
 
 pub(super) struct Sink {
     pub(super) selector: gst::Element,
+    pub(super) queue: gst::Element,
     pub(super) sink: gst::Element,
 }
 
