@@ -102,10 +102,11 @@ impl GstThread {
                         MessageView::Error(err) => {
                             if let Some(obj) = err.src()
                                 && let Some(element) = obj.downcast_ref::<gst::Element>()
-                                && element.has_as_ancestor(&main.watchdog)
                             {
                                 if element.has_as_ancestor(&main.watchdog) {
                                     println!("Watchdog Main Error");
+                                    elements.main_sink.selector.set_property("active-pad", &sel_pad_1);
+                                    elements.main.watchdog.unlink(&elements.main_sink.selector);
                                 } else if element.has_as_ancestor(&down.watchdog) {
                                     println!("Watchdog Down Error");
                                 }
@@ -136,11 +137,22 @@ impl GstThread {
                                 };
                                 elements.main_sink.selector.set_property("active-pad", pad);
                             }
-                            Cmd::Stop(source) => match source {
-                                Source::Main => elements.main.src.set_state(gst::State::Null),
-                                Source::Down => todo!(),
+                            Cmd::Start(source) => match source {
+                                Source::Main => {
+                                    let _ = elements.main.src.set_state(gst::State::Playing);
+                                }
+                                Source::Down => {
+                                    let _ = elements.down.src.set_state(gst::State::Playing);
+                                }
                             },
-                            Cmd::Start(source) => todo!(),
+                            Cmd::Stop(source) => match source {
+                                Source::Main => {
+                                    let _ = elements.main.src.set_state(gst::State::Null);
+                                }
+                                Source::Down => {
+                                    let _ = elements.down.src.set_state(gst::State::Null);
+                                }
+                            },
                         }
                     }
                 }
@@ -178,6 +190,7 @@ impl GstThread {
             .property("caps", &caps)
             .build()
             .map_err(InnerError::GlibBool)?;
+        // TODO: Try leaky queue.
         let queue = gst::ElementFactory::make("queue")
             .name("main_queue")
             .build()

@@ -37,6 +37,18 @@ fn main() -> Result<()> {
                 } else if split[1] == "down" {
                     thread.send_cmd(gst_thread::Cmd::Select(gst_thread::Source::Down));
                 }
+            } else if split[0] == "start" {
+                if split[1] == "main" {
+                    thread.send_cmd(gst_thread::Cmd::Start(gst_thread::Source::Main));
+                } else if split[1] == "down" {
+                    thread.send_cmd(gst_thread::Cmd::Start(gst_thread::Source::Down));
+                }
+            } else if split[0] == "stop" {
+                if split[1] == "main" {
+                    thread.send_cmd(gst_thread::Cmd::Stop(gst_thread::Source::Main));
+                } else if split[1] == "down" {
+                    thread.send_cmd(gst_thread::Cmd::Stop(gst_thread::Source::Down));
+                }
             }
         }
         if cmd.starts_with("sel") {}
