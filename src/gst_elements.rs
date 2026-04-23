@@ -6,8 +6,8 @@ use crate::gst_error::InnerError;
 pub(super) struct MainSrcElements {
     pub(super) src: gst::Element,
     pub(super) caps: gst::Element,
-    pub(super) queue: gst::Element,
     pub(super) watchdog: gst::Element,
+    pub(super) queue: gst::Element,
 }
 
 impl MainSrcElements {
@@ -21,8 +21,8 @@ impl MainSrcElements {
 pub(super) struct DownSrcElements {
     pub(super) src: gst::Element,
     pub(super) caps: gst::Element,
-    pub(super) queue: gst::Element,
     pub(super) watchdog: gst::Element,
+    pub(super) queue: gst::Element,
 }
 
 impl DownSrcElements {
@@ -42,7 +42,7 @@ pub(super) struct Sink {
 impl Sink {
     pub(super) fn add_to_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         pipeline
-            .add_many([&self.selector, &self.sink])
+            .add_many([&self.selector, &self.queue, &self.sink])
             .map_err(InnerError::GlibBool)?;
         Ok(())
     }
