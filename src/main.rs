@@ -7,6 +7,7 @@ use std::os::unix::net::UnixListener;
 mod gst_elements;
 mod gst_error;
 mod gst_thread;
+mod gst_probe;
 
 #[derive(Debug)]
 enum SockCmd {

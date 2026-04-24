@@ -2,12 +2,14 @@
 use crossbeam::channel;
 use gst::{MessageType, prelude::*};
 use gstreamer as gst;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
 use crate::gst_elements::{DownSrcElements, Elements, MainSrcElements, Sink};
 use crate::gst_error::{Error, InnerError};
+use crate::gst_probe::GstProbe;
 
 pub enum Source {
     Main,
@@ -86,14 +88,7 @@ impl GstThread {
 
             main_sink.selector.set_property("active-pad", &sink_sel_pad_0);
 
-            let last_seen = Arc::new(Mutex::new(Instant::now()));
-            let last_seen_clone = last_seen.clone();
-
-            let pad = main.queue.static_pad("src").unwrap();
-            let probe = pad.add_probe(gst::PadProbeType::BUFFER, move |_pad, _info| {
-                *last_seen_clone.lock().unwrap() = Instant::now();
-                gst::PadProbeReturn::Ok
-            }).unwrap();
+            let mut main_src_probe = GstProbe::new(&main.src);
 
             pipeline
                 .set_state(gst::State::Playing)
@@ -115,12 +110,15 @@ impl GstThread {
                                 && let Some(element) = obj.downcast_ref::<gst::Element>()
                             {
                                 if element.has_as_ancestor(&main.watchdog) {
+                                    // TODO: Need to stop all elements in pipeline before unlinking.
+                                    // Make function is elements to stop all elements.
                                     println!("Watchdog Main Error");
                                     elements.main_sink.selector.set_property("active-pad", &sink_sel_pad_1);
                                     let queue_src_pad = elements.main.queue.static_pad("src").unwrap();
                                     let watch_sink_pad = elements.main.watchdog.static_pad("sink").unwrap();
-                                    queue_src_pad.unlink(&watch_sink_pad);
-                                    elements.main.watchdog.unlink(&elements.main_sink.selector);
+                                    queue_src_pad.unlink(&watch_sink_pad).unwrap();
+                                    println!("queue src pad linked: {}", queue_src_pad.is_linked());
+                                    // elements.main.watchdog.unlink(&elements.main_sink.selector);
                                 } else if element.has_as_ancestor(&down.watchdog) {
                                     println!("Watchdog Down Error");
                                     // elements.main_sink.selector.set_property("active-pad", &sel_pad_0);
@@ -143,7 +141,10 @@ impl GstThread {
                         _ => {}
                     },
                     None => {
-                        println!("last seen: {:?}", last_seen.lock().unwrap());
+                        if main_src_probe.is_stale() {
+                            println!("Main source stale");
+                        }
+
                         let cmd = recv_to_thread.try_recv().unwrap_or(Cmd::None);
                         match cmd {
                             Cmd::None => {}
