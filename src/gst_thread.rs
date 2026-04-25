@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::gst_elements::{DownSrcElements, Elements, MainSrcElements, Sink};
+use crate::gst_elements::{DownSrcElements, Elements, MainSrcElements, Sink, ElementTrait};
 use crate::gst_error::{Error, InnerError};
 use crate::gst_probe::GstProbe;
 
@@ -47,9 +47,9 @@ impl GstThread {
             let down = &elements.down;
             let main_sink = &elements.main_sink;
 
-            gst::Element::link_many([&main.src, &main.caps, &main.watchdog, &main.queue])
+            gst::Element::link_many([&main.src, &main.caps, &main.queue])
                 .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
-            gst::Element::link_many([&down.src, &down.caps, &down.watchdog, &down.queue])
+            gst::Element::link_many([&down.src, &down.caps, &down.queue])
                 .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
 
             gst::Element::link_many([&main_sink.selector, &main_sink.queue, &main_sink.sink])
@@ -106,34 +106,13 @@ impl GstThread {
                 match msg {
                     Some(msg) => match msg.view() {
                         MessageView::Error(err) => {
-                            if let Some(obj) = err.src()
-                                && let Some(element) = obj.downcast_ref::<gst::Element>()
-                            {
-                                if element.has_as_ancestor(&main.watchdog) {
-                                    // TODO: Need to stop all elements in pipeline before unlinking.
-                                    // Make function is elements to stop all elements.
-                                    println!("Watchdog Main Error");
-                                    elements.main_sink.selector.set_property("active-pad", &sink_sel_pad_1);
-                                    let queue_src_pad = elements.main.queue.static_pad("src").unwrap();
-                                    let watch_sink_pad = elements.main.watchdog.static_pad("sink").unwrap();
-                                    queue_src_pad.unlink(&watch_sink_pad).unwrap();
-                                    println!("queue src pad linked: {}", queue_src_pad.is_linked());
-                                    // elements.main.watchdog.unlink(&elements.main_sink.selector);
-                                } else if element.has_as_ancestor(&down.watchdog) {
-                                    println!("Watchdog Down Error");
-                                    // elements.main_sink.selector.set_property("active-pad", &sel_pad_0);
-                                    // elements.down.watchdog.unlink(&elements.main_sink.selector);
-                                }
-                                // Don't break.
-                            } else {
-                                eprintln!(
-                                    "Error recieved from element {:?}: {}",
-                                    err.src().map(|s| s.path_string()),
-                                    err.error()
-                                );
-                                eprintln!("Debugging information: {:?}", err.debug());
-                                break;
-                            }
+                            eprintln!(
+                                "Error recieved from element {:?}: {}",
+                                err.src().map(|s| s.path_string()),
+                                err.error()
+                            );
+                            eprintln!("Debugging information: {:?}", err.debug());
+                            break;
                         }
                         MessageView::Eos(_) => {
                             println!("eos");
@@ -142,7 +121,13 @@ impl GstThread {
                     },
                     None => {
                         if main_src_probe.is_stale() {
-                            println!("Main source stale");
+                            let queue_src_pad = elements.main.queue.static_pad("src").unwrap();
+
+                            if queue_src_pad.is_linked() && elements.main.is_all_null() {
+                                println!("unlink");
+                                elements.main_sink.selector.set_property("active-pad", &sink_sel_pad_1);
+                                elements.main.queue.unlink(&elements.main_sink.selector);
+                            }
                         }
 
                         let cmd = recv_to_thread.try_recv().unwrap_or(Cmd::None);
@@ -157,7 +142,7 @@ impl GstThread {
                             }
                             Cmd::Start(source) => match source {
                                 Source::Main => {
-                                    let _ = elements.main.src.set_state(gst::State::Playing);
+                                    elements.main.set_state(gst::State::Playing).unwrap();
                                 }
                                 Source::Down => {
                                     let _ = elements.down.src.set_state(gst::State::Playing);
@@ -165,7 +150,7 @@ impl GstThread {
                             },
                             Cmd::Stop(source) => match source {
                                 Source::Main => {
-                                    let _ = elements.main.src.set_state(gst::State::Null);
+                                    elements.main.set_state(gst::State::Null).unwrap();
                                 }
                                 Source::Down => {
                                     let _ = elements.down.src.set_state(gst::State::Null);
