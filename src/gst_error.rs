@@ -28,4 +28,6 @@ pub enum InnerError {
     StateChange(gstreamer::StateChangeError),
     #[error("bus")]
     Bus,
+    #[error("request pad: {0}")]
+    RequestPad(String)
 }

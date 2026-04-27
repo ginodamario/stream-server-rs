@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::gst_elements::{DownSrcElements, Elements, MainSrcElements, Sink, ElementTrait};
+use crate::gst_elements::{DownSrcElements, ElementTrait, Elements, MainSrcElements, Sink};
 use crate::gst_error::{Error, InnerError};
 use crate::gst_probe::GstProbe;
 
@@ -36,7 +36,7 @@ impl GstThread {
         let handle = thread::spawn(move || {
             gst::init().map_err(|e| Error::Init(InnerError::Glib(e)))?;
 
-            let elements = Self::create_element().map_err(Error::Pipeline)?;
+            let elements = Self::create_elements().map_err(Error::Pipeline)?;
 
             let pipeline = gst::Pipeline::with_name("pipeline");
             elements
@@ -55,21 +55,6 @@ impl GstThread {
             gst::Element::link_many([&main_sink.selector, &main_sink.queue, &main_sink.sink])
                 .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
 
-            let sink_sel_pad_0 =
-                main_sink
-                    .selector
-                    .request_pad_simple("sink_%u")
-                    .ok_or(Error::LinkStr(
-                        "Linking request main select pad 0".to_string(),
-                    ))?;
-            let sink_sel_pad_1 =
-                main_sink
-                    .selector
-                    .request_pad_simple("sink_%u")
-                    .ok_or(Error::LinkStr(
-                        "Linking request main select pad 1".to_string(),
-                    ))?;
-
             let main_queue_src = main
                 .queue
                 .static_pad("src")
@@ -80,13 +65,15 @@ impl GstThread {
                 .ok_or(Error::LinkStr("Get pip watchdog src pad".to_string()))?;
 
             main_queue_src
-                .link(&sink_sel_pad_0)
+                .link(&elements.main_sink.selector_sink_pad_0)
                 .map_err(|e| Error::Link(InnerError::Link(e)))?;
             down_queue_src
-                .link(&sink_sel_pad_1)
+                .link(&elements.main_sink.selector_sink_pad_1)
                 .map_err(|e| Error::Link(InnerError::Link(e)))?;
 
-            main_sink.selector.set_property("active-pad", &sink_sel_pad_0);
+            main_sink
+                .selector
+                .set_property("active-pad", &main_sink.selector_sink_pad_0);
 
             let mut main_src_probe = GstProbe::new(&main.src);
 
@@ -123,9 +110,12 @@ impl GstThread {
                         if main_src_probe.is_stale() {
                             let queue_src_pad = elements.main.queue.static_pad("src").unwrap();
 
-                            if queue_src_pad.is_linked() && elements.main.is_all_null() {
+                            if queue_src_pad.is_linked() && elements.main.is_all_null_state() {
                                 println!("unlink");
-                                elements.main_sink.selector.set_property("active-pad", &sink_sel_pad_1);
+                                elements.main_sink.selector.set_property(
+                                    "active-pad",
+                                    &elements.main_sink.selector_sink_pad_1,
+                                );
                                 elements.main.queue.unlink(&elements.main_sink.selector);
                             }
                         }
@@ -135,13 +125,22 @@ impl GstThread {
                             Cmd::None => {}
                             Cmd::Select(source) => {
                                 let pad = match source {
-                                    Source::Main => &sink_sel_pad_0,
-                                    Source::Down => &sink_sel_pad_1,
+                                    Source::Main => &elements.main_sink.selector_sink_pad_0,
+                                    Source::Down => &elements.main_sink.selector_sink_pad_1,
                                 };
                                 elements.main_sink.selector.set_property("active-pad", pad);
                             }
                             Cmd::Start(source) => match source {
                                 Source::Main => {
+                                    let queue_src_pad =
+                                        elements.main.queue.static_pad("src").unwrap();
+                                    if !queue_src_pad.is_linked() {
+                                        println!("re-linking");
+                                        queue_src_pad
+                                            .link(&elements.main_sink.selector_sink_pad_0)
+                                            .unwrap();
+                                    }
+
                                     elements.main.set_state(gst::State::Playing).unwrap();
                                 }
                                 Source::Down => {
@@ -153,7 +152,7 @@ impl GstThread {
                                     elements.main.set_state(gst::State::Null).unwrap();
                                 }
                                 Source::Down => {
-                                    let _ = elements.down.src.set_state(gst::State::Null);
+                                    elements.down.set_state(gst::State::Null).unwrap();
                                 }
                             },
                         }
@@ -176,7 +175,7 @@ impl GstThread {
         self.handle.join().map_err(|_| Error::Join)?
     }
 
-    fn create_element() -> Result<Elements, InnerError> {
+    fn create_elements() -> Result<Elements, InnerError> {
         let src = gst::ElementFactory::make("videotestsrc")
             .name("main_src")
             .property_from_str("pattern", "smpte")
@@ -203,12 +202,7 @@ impl GstThread {
             .build()
             .map_err(InnerError::GlibBool)?;
 
-        let main_elements = MainSrcElements {
-            src,
-            caps,
-            queue,
-            watchdog,
-        };
+        let main_elements = MainSrcElements { src, caps, queue };
 
         let src = gst::ElementFactory::make("videotestsrc")
             .name("down_src")
@@ -236,12 +230,7 @@ impl GstThread {
             .build()
             .expect("Could not create queue element.");
 
-        let down_elements = DownSrcElements {
-            src,
-            caps,
-            queue,
-            watchdog,
-        };
+        let down_elements = DownSrcElements { src, caps, queue };
 
         let selector = gst::ElementFactory::make("input-selector")
             .name("selector")
@@ -257,12 +246,36 @@ impl GstThread {
             .build()
             .map_err(InnerError::GlibBool)?;
 
-        let main_sink = Sink { selector, queue, sink };
+        let selector_sink_pad_0 =
+            selector
+                .request_pad_simple("sink_%u")
+                .ok_or(InnerError::RequestPad(
+                    "Request main select pad 0".to_string(),
+                ))?;
+
+        let selector_sink_pad_1 =
+            selector
+                .request_pad_simple("sink_%u")
+                .ok_or(InnerError::RequestPad(
+                    "Request main select pad 1".to_string(),
+                ))?;
+
+        let main_sink = Sink {
+            selector,
+            selector_sink_pad_0,
+            selector_sink_pad_1,
+            queue,
+            sink,
+        };
 
         Ok(Elements {
             main: main_elements,
             down: down_elements,
             main_sink,
         })
+    }
+
+    fn link_elements() {
+        // TODO:
     }
 }
