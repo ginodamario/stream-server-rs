@@ -29,5 +29,7 @@ pub enum InnerError {
     #[error("bus")]
     Bus,
     #[error("request pad: {0}")]
-    RequestPad(String)
+    RequestPad(String),
+    #[error("get element")]
+    GetElement,
 }

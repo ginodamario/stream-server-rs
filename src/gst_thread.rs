@@ -47,29 +47,7 @@ impl GstThread {
             let down = &elements.down;
             let main_sink = &elements.main_sink;
 
-            gst::Element::link_many([&main.src, &main.caps, &main.queue])
-                .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
-            gst::Element::link_many([&down.src, &down.caps, &down.queue])
-                .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
-
-            gst::Element::link_many([&main_sink.selector, &main_sink.queue, &main_sink.sink])
-                .map_err(|e| Error::Init(InnerError::GlibBool(e)))?;
-
-            let main_queue_src = main
-                .queue
-                .static_pad("src")
-                .ok_or(Error::LinkStr("Get main watchdog src pad".to_string()))?;
-            let down_queue_src = down
-                .queue
-                .static_pad("src")
-                .ok_or(Error::LinkStr("Get pip watchdog src pad".to_string()))?;
-
-            main_queue_src
-                .link(&elements.main_sink.selector_sink_pad_0)
-                .map_err(|e| Error::Link(InnerError::Link(e)))?;
-            down_queue_src
-                .link(&elements.main_sink.selector_sink_pad_1)
-                .map_err(|e| Error::Link(InnerError::Link(e)))?;
+            elements.link().map_err(Error::Link)?;
 
             main_sink
                 .selector

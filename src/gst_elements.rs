@@ -28,6 +28,17 @@ pub(super) trait ElementTrait {
         true
     }
 
+    fn link(&self) -> Result<(), InnerError> {
+        gst::Element::link_many(self.get_elements()).map_err(InnerError::GlibBool)?;
+
+        Ok(())
+    }
+
+    fn get_last_element(&self) -> Result<&gst::Element, InnerError> {
+        let e = *self.get_elements().last().ok_or(InnerError::GetElement)?;
+        Ok(e)
+    }
+
     fn get_elements(&self) -> Vec<&gst::Element>;
 }
 
@@ -79,7 +90,6 @@ pub(super) struct Elements {
     pub(super) main: MainSrcElements,
     pub(super) down: DownSrcElements,
     pub(super) main_sink: Sink,
-    // pub(super) pip_sink: Sink,
 }
 
 impl Elements {
@@ -87,7 +97,37 @@ impl Elements {
         self.main.add_to_pipeline(pipeline)?;
         self.down.add_to_pipeline(pipeline)?;
         self.main_sink.add_to_pipeline(pipeline)?;
-        // self.pip_sink.add_to_pipeline(pipeline)?;
+        Ok(())
+    }
+
+    pub(super) fn link(&self) -> Result<(), InnerError> {
+        self.main.link()?;
+        self.down.link()?;
+        self.main_sink.link()?;
+
+        self.link_element_to_sink_pad(
+            self.main.get_last_element()?,
+            &self.main_sink.selector_sink_pad_0,
+        )?;
+        self.link_element_to_sink_pad(
+            self.down.get_last_element()?,
+            &self.main_sink.selector_sink_pad_1,
+        )?;
+
+        Ok(())
+    }
+
+    fn link_element_to_sink_pad(
+        &self,
+        src: &gst::Element,
+        pad: &gst::Pad,
+    ) -> Result<(), InnerError> {
+        let src_pad = src
+            .static_pad("src")
+            .ok_or(InnerError::RequestPad("Get main queu src pad".to_string()))?;
+
+        src_pad.link(pad).map_err(InnerError::Link)?;
+
         Ok(())
     }
 }
