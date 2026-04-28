@@ -46,8 +46,11 @@ fn main() -> Result<()> {
                     thread.send_cmd(gst_thread::Cmd::Stop(gst_thread::Source::Down));
                 }
             }
+        } else if split.len() == 1 {
+            if split[0] == "exit" {
+                thread.send_cmd(gst_thread::Cmd::Exit);
+            }
         }
-        if cmd.starts_with("sel") {}
     }
 
     println!("joining threads");

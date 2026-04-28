@@ -4,8 +4,8 @@ use thiserror::Error;
 pub enum Error {
     #[error("Init: {0}")]
     Init(InnerError),
-    #[error("Pipeline: {0}")]
-    Pipeline(InnerError),
+    #[error("Create Pipeline: {0}")]
+    CreatePipeline(InnerError),
     #[error("Link: {0}")]
     LinkStr(String),
     #[error("Link: {0}")]
