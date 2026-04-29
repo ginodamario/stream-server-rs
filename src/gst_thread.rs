@@ -110,11 +110,16 @@ impl GstThread {
                         match cmd {
                             Cmd::None => {}
                             Cmd::Select(source) => {
+                                // let pad = match source {
+                                //     Source::Main => &elements.main_sink.selector_sink_pad_0,
+                                //     Source::Down => &elements.main_sink.selector_sink_pad_1,
+                                // };
+                                // elements.main_sink.selector.set_property("active-pad", pad);
                                 let pad = match source {
-                                    Source::Main => &elements.main_sink.selector_sink_pad_0,
-                                    Source::Down => &elements.main_sink.selector_sink_pad_1,
+                                    Source::Main => &elements.pip_sink.selector_sink_pad_0,
+                                    Source::Down => &elements.pip_sink.selector_sink_pad_1,
                                 };
-                                elements.main_sink.selector.set_property("active-pad", pad);
+                                elements.pip_sink.selector.set_property("active-pad", pad);
                             }
                             Cmd::Start(source) => match source {
                                 Source::Main => {
