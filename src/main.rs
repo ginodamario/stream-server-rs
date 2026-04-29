@@ -49,6 +49,7 @@ fn main() -> Result<()> {
         } else if split.len() == 1 {
             if split[0] == "exit" {
                 thread.send_cmd(gst_thread::Cmd::Exit);
+                break;
             }
         }
     }

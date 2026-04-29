@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::gst_elements::{DownSrcElements, ElementTrait, Elements, MainSrcElements, Sink};
+use crate::gst_elements::{DownSrcElements, ElementTrait, Elements, MainSink, MainSrcElements};
 use crate::gst_error::{Error, InnerError};
 use crate::gst_probe::GstProbe;
 
@@ -47,12 +47,16 @@ impl GstThread {
             let main = &elements.main;
             let down = &elements.down;
             let main_sink = &elements.main_sink;
+            let pip_sink = &elements.pip_sink;
 
             elements.link().map_err(Error::Link)?;
 
             main_sink
                 .selector
                 .set_property("active-pad", &main_sink.selector_sink_pad_0);
+            pip_sink
+                .selector
+                .set_property("active-pad", &pip_sink.selector_sink_pad_0);
 
             let mut main_src_probe = GstProbe::new(&main.src);
 
@@ -89,16 +93,17 @@ impl GstThread {
                     },
                     None => {
                         if main_src_probe.is_stale() {
-                            let queue_src_pad = elements.main.queue.static_pad("src").unwrap();
-
-                            if queue_src_pad.is_linked() && elements.main.is_all_null_state() {
-                                println!("unlink");
-                                elements.main_sink.selector.set_property(
-                                    "active-pad",
-                                    &elements.main_sink.selector_sink_pad_1,
-                                );
-                                elements.main.queue.unlink(&elements.main_sink.selector);
-                            }
+                            println!("main stale");
+                            // let queue_src_pad = elements.main.queue.static_pad("src").unwrap();
+                            //
+                            // if queue_src_pad.is_linked() && elements.main.is_all_null_state() {
+                            //     println!("unlink");
+                            //     elements.main_sink.selector.set_property(
+                            //         "active-pad",
+                            //         &elements.main_sink.selector_sink_pad_1,
+                            //     );
+                            //     elements.main.queue.unlink(&elements.main_sink.selector);
+                            // }
                         }
 
                         let cmd = recv_to_thread.try_recv().unwrap_or(Cmd::None);
@@ -113,17 +118,19 @@ impl GstThread {
                             }
                             Cmd::Start(source) => match source {
                                 Source::Main => {
-                                    elements.recreate_main(&pipeline).unwrap();
-                                    let queue_src_pad =
-                                        elements.main.queue.static_pad("src").unwrap();
-                                    if !queue_src_pad.is_linked() {
-                                        println!("re-linking");
-                                        queue_src_pad
-                                            .link(&elements.main_sink.selector_sink_pad_0)
-                                            .unwrap();
-                                    }
+                                    todo!();
+                                    // TODO Check if already running.
+                                    // elements.recreate_main(&pipeline).unwrap();
+                                    // let queue_src_pad =
+                                    //     elements.main.queue.static_pad("src").unwrap();
+                                    // if !queue_src_pad.is_linked() {
+                                    //     println!("re-linking");
+                                    //     queue_src_pad
+                                    //         .link(&elements.main_sink.selector_sink_pad_0)
+                                    //         .unwrap();
+                                    // }
 
-                                    elements.main.set_state(gst::State::Playing).unwrap();
+                                    // elements.main.set_state(gst::State::Playing).unwrap();
                                 }
                                 Source::Down => {
                                     let _ = elements.down.src.set_state(gst::State::Playing);
