@@ -51,6 +51,7 @@ pub(super) trait ElementTrait {
 pub(super) struct MainSrcElements {
     pub(super) src: gst::Element,
     pub(super) caps: gst::Element,
+    pub(super) queue: gst::Element,
     pub(super) tee: gst::Element,
     pub(super) queue_0: gst::Element,
     pub(super) queue_1: gst::Element,
@@ -58,7 +59,7 @@ pub(super) struct MainSrcElements {
 
 impl ElementTrait for MainSrcElements {
     fn link(&self) -> Result<(), InnerError> {
-        gst::Element::link_many([&self.src, &self.caps, &self.tee])
+        gst::Element::link_many([&self.src, &self.caps, &self.queue, &self.tee])
             .map_err(InnerError::GlibBool)?;
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
@@ -76,6 +77,7 @@ impl ElementTrait for MainSrcElements {
         vec![
             &self.src,
             &self.caps,
+            &self.queue,
             &self.tee,
             &self.queue_0,
             &self.queue_1,
@@ -101,8 +103,14 @@ impl MainSrcElements {
             .property("caps", &caps)
             .build()
             .map_err(InnerError::GlibBool)?;
+        let queue = gst::ElementFactory::make("queue")
+            .name("main_queue")
+            .property_from_str("leaky", "downstream")
+            .build()
+            .map_err(InnerError::GlibBool)?;
         let tee = gst::ElementFactory::make("tee")
             .name("main_tee")
+            .property("allow-not-linked", true)
             .build()
             .map_err(InnerError::GlibBool)?;
         let queue_0 = gst::ElementFactory::make("queue")
@@ -119,6 +127,7 @@ impl MainSrcElements {
         Ok(MainSrcElements {
             src,
             caps,
+            queue,
             tee,
             queue_0,
             queue_1,
@@ -129,6 +138,7 @@ impl MainSrcElements {
 pub(super) struct DownSrcElements {
     pub(super) src: gst::Element,
     pub(super) caps: gst::Element,
+    pub(super) queue: gst::Element,
     pub(super) tee: gst::Element,
     pub(super) queue_0: gst::Element,
     pub(super) queue_1: gst::Element,
@@ -136,7 +146,7 @@ pub(super) struct DownSrcElements {
 
 impl ElementTrait for DownSrcElements {
     fn link(&self) -> Result<(), InnerError> {
-        gst::Element::link_many([&self.src, &self.caps, &self.tee])
+        gst::Element::link_many([&self.src, &self.caps, &self.queue, &self.tee])
             .map_err(InnerError::GlibBool)?;
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
@@ -154,6 +164,7 @@ impl ElementTrait for DownSrcElements {
         vec![
             &self.src,
             &self.caps,
+            &self.queue,
             &self.tee,
             &self.queue_0,
             &self.queue_1,
@@ -168,7 +179,7 @@ impl DownSrcElements {
             .property_from_str("pattern", "ball")
             .property_from_str("is-live", "true")
             .build()
-            .expect("Could not create source element.");
+            .map_err(InnerError::GlibBool)?;
         let caps = gst::Caps::builder("video/x-raw")
             .field("format", "NV12")
             .field("width", 1920)
@@ -179,8 +190,14 @@ impl DownSrcElements {
             .property("caps", &caps)
             .build()
             .expect("Could not create caps element.");
+        let queue = gst::ElementFactory::make("queue")
+            .name("down_queue")
+            .property_from_str("leaky", "downstream")
+            .build()
+            .map_err(InnerError::GlibBool)?;
         let tee = gst::ElementFactory::make("tee")
             .name("down_tee")
+            .property("allow-not-linked", true)
             .build()
             .map_err(InnerError::GlibBool)?;
         let queue_0 = gst::ElementFactory::make("queue")
@@ -197,6 +214,7 @@ impl DownSrcElements {
         Ok(DownSrcElements {
             src,
             caps,
+            queue,
             tee,
             queue_0,
             queue_1,
@@ -247,6 +265,8 @@ impl MainSink {
                 .ok_or(InnerError::RequestPad(
                     "Request main select pad 1".to_string(),
                 ))?;
+        selector_sink_pad_0.set_property("always-ok", true);
+        selector_sink_pad_1.set_property("always-ok", true);
 
         Ok(MainSink {
             selector,
@@ -298,6 +318,8 @@ impl PipSink {
                 .ok_or(InnerError::RequestPad(
                     "Request main select pad 1".to_string(),
                 ))?;
+        selector_sink_pad_0.set_property("always-ok", true);
+        selector_sink_pad_1.set_property("always-ok", true);
         let video_scale = gst::ElementFactory::make("videoscale")
             .name("pip-videoscale")
             .build()

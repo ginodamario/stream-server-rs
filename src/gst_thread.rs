@@ -59,6 +59,7 @@ impl GstThread {
                 .set_property("active-pad", &pip_sink.selector_sink_pad_0);
 
             let mut main_src_probe = GstProbe::new(&main.src);
+            let mut down_src_probe = GstProbe::new(&down.src);
 
             pipeline
                 .set_state(gst::State::Playing)
@@ -104,6 +105,9 @@ impl GstThread {
                             //     );
                             //     elements.main.queue.unlink(&elements.main_sink.selector);
                             // }
+                        }
+                        if down_src_probe.is_stale() {
+                            println!("down stale");
                         }
 
                         let cmd = recv_to_thread.try_recv().unwrap_or(Cmd::None);
