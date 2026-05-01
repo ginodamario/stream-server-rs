@@ -6,5 +6,5 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.102"
 crossbeam = "0.8.4"
-gstreamer = "0.25.1"
+gstreamer = { version="0.25.1", features=["v1_28"]}
 thiserror = "2.0.18"

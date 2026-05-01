@@ -27,11 +27,17 @@ fn main() -> Result<()> {
 
         let split: Vec<&str> = cmd.split_whitespace().collect();
         if split.len() == 2 {
-            if split[0] == "sel" {
+            if split[0] == "selmain" {
                 if split[1] == "main" {
-                    thread.send_cmd(gst_thread::Cmd::Select(gst_thread::Source::Main));
+                    thread.send_cmd(gst_thread::Cmd::SelectMain(gst_thread::Source::Main));
                 } else if split[1] == "down" {
-                    thread.send_cmd(gst_thread::Cmd::Select(gst_thread::Source::Down));
+                    thread.send_cmd(gst_thread::Cmd::SelectMain(gst_thread::Source::Down));
+                }
+            } else if split[0] == "selpip" {
+                if split[1] == "main" {
+                    thread.send_cmd(gst_thread::Cmd::SelectPip(gst_thread::Source::Main));
+                } else if split[1] == "down" {
+                    thread.send_cmd(gst_thread::Cmd::SelectPip(gst_thread::Source::Down));
                 }
             } else if split[0] == "start" {
                 if split[1] == "main" {

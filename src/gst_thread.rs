@@ -18,7 +18,8 @@ pub enum Source {
 
 pub enum Cmd {
     None,
-    Select(Source),
+    SelectMain(Source),
+    SelectPip(Source),
     Stop(Source),
     Start(Source),
     Exit,
@@ -113,17 +114,19 @@ impl GstThread {
                         let cmd = recv_to_thread.try_recv().unwrap_or(Cmd::None);
                         match cmd {
                             Cmd::None => {}
-                            Cmd::Select(source) => {
-                                // let pad = match source {
-                                //     Source::Main => &elements.main_sink.selector_sink_pad_0,
-                                //     Source::Down => &elements.main_sink.selector_sink_pad_1,
-                                // };
-                                // elements.main_sink.selector.set_property("active-pad", pad);
-                                let pad = match source {
+                            Cmd::SelectMain(source) => {
+                                let main_pad = match source {
+                                    Source::Main => &elements.main_sink.selector_sink_pad_0,
+                                    Source::Down => &elements.main_sink.selector_sink_pad_1,
+                                };
+                                elements.main_sink.selector.set_property("active-pad", main_pad);
+                            }
+                            Cmd::SelectPip(source) => {
+                                let pip_pad = match source {
                                     Source::Main => &elements.pip_sink.selector_sink_pad_0,
                                     Source::Down => &elements.pip_sink.selector_sink_pad_1,
                                 };
-                                elements.pip_sink.selector.set_property("active-pad", pad);
+                                elements.pip_sink.selector.set_property("active-pad", pip_pad);
                             }
                             Cmd::Start(source) => match source {
                                 Source::Main => {

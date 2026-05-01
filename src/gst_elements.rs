@@ -110,16 +110,18 @@ impl MainSrcElements {
             .map_err(InnerError::GlibBool)?;
         let tee = gst::ElementFactory::make("tee")
             .name("main_tee")
-            .property("allow-not-linked", true)
+            // .property("allow-not-linked", true)
             .build()
             .map_err(InnerError::GlibBool)?;
         let queue_0 = gst::ElementFactory::make("queue")
             .name("main_queue_0")
+            .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
             .build()
             .map_err(InnerError::GlibBool)?;
         let queue_1 = gst::ElementFactory::make("queue")
             .name("main_queue_1")
+            .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
             .build()
             .map_err(InnerError::GlibBool)?;
@@ -197,16 +199,18 @@ impl DownSrcElements {
             .map_err(InnerError::GlibBool)?;
         let tee = gst::ElementFactory::make("tee")
             .name("down_tee")
-            .property("allow-not-linked", true)
+            // .property("allow-not-linked", true)
             .build()
             .map_err(InnerError::GlibBool)?;
         let queue_0 = gst::ElementFactory::make("queue")
             .name("down_queue_0")
+            .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
             .build()
             .map_err(InnerError::GlibBool)?;
         let queue_1 = gst::ElementFactory::make("queue")
             .name("down_queue_1")
+            .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
             .build()
             .map_err(InnerError::GlibBool)?;
@@ -240,6 +244,7 @@ impl MainSink {
     fn new() -> Result<Self, InnerError> {
         let selector = gst::ElementFactory::make("input-selector")
             .name("selector")
+            .property("sync-streams", false)
             .build()
             .map_err(InnerError::GlibBool)?;
         let queue = gst::ElementFactory::make("queue")
@@ -265,8 +270,8 @@ impl MainSink {
                 .ok_or(InnerError::RequestPad(
                     "Request main select pad 1".to_string(),
                 ))?;
-        selector_sink_pad_0.set_property("always-ok", true);
-        selector_sink_pad_1.set_property("always-ok", true);
+        // selector_sink_pad_0.set_property("always-ok", true);
+        // selector_sink_pad_1.set_property("always-ok", true);
 
         Ok(MainSink {
             selector,
@@ -303,14 +308,15 @@ impl ElementTrait for PipSink {
 impl PipSink {
     fn new() -> Result<Self, InnerError> {
         let selector = gst::ElementFactory::make("input-selector")
-            .name("pip-selector")
+            .name("pip_selector")
+            .property("sync-streams", false)
             .build()
             .map_err(InnerError::GlibBool)?;
         let selector_sink_pad_0 =
             selector
                 .request_pad_simple("sink_%u")
                 .ok_or(InnerError::RequestPad(
-                    "Request main select pad 0".to_string(),
+                    "Request pip select pad 0".to_string(),
                 ))?;
         let selector_sink_pad_1 =
             selector
@@ -318,10 +324,10 @@ impl PipSink {
                 .ok_or(InnerError::RequestPad(
                     "Request main select pad 1".to_string(),
                 ))?;
-        selector_sink_pad_0.set_property("always-ok", true);
-        selector_sink_pad_1.set_property("always-ok", true);
+        // selector_sink_pad_0.set_property("always-ok", true);
+        // selector_sink_pad_1.set_property("always-ok", true);
         let video_scale = gst::ElementFactory::make("videoscale")
-            .name("pip-videoscale")
+            .name("pip_videoscale")
             .build()
             .map_err(InnerError::GlibBool)?;
         let caps = gst::Caps::builder("video/x-raw")
@@ -335,12 +341,12 @@ impl PipSink {
             .build()
             .map_err(InnerError::GlibBool)?;
         let queue = gst::ElementFactory::make("queue")
-            .name("pip-queue")
+            .name("pip_queue")
             .property_from_str("leaky", "downstream")
             .build()
             .map_err(InnerError::GlibBool)?;
         let sink = gst::ElementFactory::make("autovideosink")
-            .name("pip-sink")
+            .name("pip_sink")
             .build()
             .map_err(InnerError::GlibBool)?;
 
