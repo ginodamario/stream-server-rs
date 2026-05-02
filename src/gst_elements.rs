@@ -51,23 +51,22 @@ pub(super) trait ElementTrait {
 pub(super) struct MainSrcElements {
     pub(super) src: gst::Element,
     pub(super) caps: gst::Element,
-    pub(super) queue: gst::Element,
     pub(super) tee: gst::Element,
-    pub(super) queue_0: gst::Element,
-    pub(super) queue_1: gst::Element,
+    pub(super) queue_0_main_src: gst::Element,
+    pub(super) queue_1_pip_src: gst::Element,
 }
 
 impl ElementTrait for MainSrcElements {
     fn link(&self) -> Result<(), InnerError> {
-        gst::Element::link_many([&self.src, &self.caps, &self.queue, &self.tee])
+        gst::Element::link_many([&self.src, &self.caps, &self.tee])
             .map_err(InnerError::GlibBool)?;
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
-        let sink_pad = self.queue_0.static_pad("sink").unwrap();
+        let sink_pad = self.queue_0_main_src.static_pad("sink").unwrap();
         src_pad.link(&sink_pad).unwrap();
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
-        let sink_pad = self.queue_1.static_pad("sink").unwrap();
+        let sink_pad = self.queue_1_pip_src.static_pad("sink").unwrap();
         src_pad.link(&sink_pad).unwrap();
 
         Ok(())
@@ -77,10 +76,9 @@ impl ElementTrait for MainSrcElements {
         vec![
             &self.src,
             &self.caps,
-            &self.queue,
             &self.tee,
-            &self.queue_0,
-            &self.queue_1,
+            &self.queue_0_main_src,
+            &self.queue_1_pip_src,
         ]
     }
 }
@@ -103,23 +101,18 @@ impl MainSrcElements {
             .property("caps", &caps)
             .build()
             .map_err(InnerError::GlibBool)?;
-        let queue = gst::ElementFactory::make("queue")
-            .name("main_queue")
-            .property_from_str("leaky", "downstream")
-            .build()
-            .map_err(InnerError::GlibBool)?;
         let tee = gst::ElementFactory::make("tee")
             .name("main_tee")
             // .property("allow-not-linked", true)
             .build()
             .map_err(InnerError::GlibBool)?;
-        let queue_0 = gst::ElementFactory::make("queue")
+        let queue_0_main_src = gst::ElementFactory::make("queue")
             .name("main_queue_0")
             .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
             .build()
             .map_err(InnerError::GlibBool)?;
-        let queue_1 = gst::ElementFactory::make("queue")
+        let queue_1_pip_src = gst::ElementFactory::make("queue")
             .name("main_queue_1")
             .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
@@ -129,10 +122,9 @@ impl MainSrcElements {
         Ok(MainSrcElements {
             src,
             caps,
-            queue,
             tee,
-            queue_0,
-            queue_1,
+            queue_0_main_src,
+            queue_1_pip_src,
         })
     }
 }
@@ -140,23 +132,22 @@ impl MainSrcElements {
 pub(super) struct DownSrcElements {
     pub(super) src: gst::Element,
     pub(super) caps: gst::Element,
-    pub(super) queue: gst::Element,
     pub(super) tee: gst::Element,
-    pub(super) queue_0: gst::Element,
-    pub(super) queue_1: gst::Element,
+    pub(super) queue_0_main_src: gst::Element,
+    pub(super) queue_1_pip_src: gst::Element,
 }
 
 impl ElementTrait for DownSrcElements {
     fn link(&self) -> Result<(), InnerError> {
-        gst::Element::link_many([&self.src, &self.caps, &self.queue, &self.tee])
+        gst::Element::link_many([&self.src, &self.caps, &self.tee])
             .map_err(InnerError::GlibBool)?;
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
-        let sink_pad = self.queue_0.static_pad("sink").unwrap();
+        let sink_pad = self.queue_0_main_src.static_pad("sink").unwrap();
         src_pad.link(&sink_pad).unwrap();
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
-        let sink_pad = self.queue_1.static_pad("sink").unwrap();
+        let sink_pad = self.queue_1_pip_src.static_pad("sink").unwrap();
         src_pad.link(&sink_pad).unwrap();
 
         Ok(())
@@ -166,10 +157,9 @@ impl ElementTrait for DownSrcElements {
         vec![
             &self.src,
             &self.caps,
-            &self.queue,
             &self.tee,
-            &self.queue_0,
-            &self.queue_1,
+            &self.queue_0_main_src,
+            &self.queue_1_pip_src,
         ]
     }
 }
@@ -192,23 +182,17 @@ impl DownSrcElements {
             .property("caps", &caps)
             .build()
             .expect("Could not create caps element.");
-        let queue = gst::ElementFactory::make("queue")
-            .name("down_queue")
-            .property_from_str("leaky", "downstream")
-            .build()
-            .map_err(InnerError::GlibBool)?;
         let tee = gst::ElementFactory::make("tee")
             .name("down_tee")
-            // .property("allow-not-linked", true)
             .build()
             .map_err(InnerError::GlibBool)?;
-        let queue_0 = gst::ElementFactory::make("queue")
+        let queue_0_main_src = gst::ElementFactory::make("queue")
             .name("down_queue_0")
             .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
             .build()
             .map_err(InnerError::GlibBool)?;
-        let queue_1 = gst::ElementFactory::make("queue")
+        let queue_1_pip_src = gst::ElementFactory::make("queue")
             .name("down_queue_1")
             .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
@@ -218,18 +202,17 @@ impl DownSrcElements {
         Ok(DownSrcElements {
             src,
             caps,
-            queue,
             tee,
-            queue_0,
-            queue_1,
+            queue_0_main_src,
+            queue_1_pip_src,
         })
     }
 }
 
 pub(super) struct MainSink {
     pub(super) selector: gst::Element,
-    pub(super) selector_sink_pad_0: gst::Pad,
-    pub(super) selector_sink_pad_1: gst::Pad,
+    pub(super) selector_sink_pad_main: gst::Pad,
+    pub(super) selector_sink_pad_down: gst::Pad,
     pub(super) queue: gst::Element,
     pub(super) sink: gst::Element,
 }
@@ -257,26 +240,24 @@ impl MainSink {
             .build()
             .map_err(InnerError::GlibBool)?;
 
-        let selector_sink_pad_0 =
+        let selector_sink_pad_main =
             selector
                 .request_pad_simple("sink_%u")
                 .ok_or(InnerError::RequestPad(
                     "Request main select pad 0".to_string(),
                 ))?;
 
-        let selector_sink_pad_1 =
+        let selector_sink_pad_down =
             selector
                 .request_pad_simple("sink_%u")
                 .ok_or(InnerError::RequestPad(
                     "Request main select pad 1".to_string(),
                 ))?;
-        // selector_sink_pad_0.set_property("always-ok", true);
-        // selector_sink_pad_1.set_property("always-ok", true);
 
         Ok(MainSink {
             selector,
-            selector_sink_pad_0,
-            selector_sink_pad_1,
+            selector_sink_pad_main,
+            selector_sink_pad_down,
             queue,
             sink,
         })
@@ -285,8 +266,8 @@ impl MainSink {
 
 pub(super) struct PipSink {
     pub(super) selector: gst::Element,
-    pub(super) selector_sink_pad_0: gst::Pad,
-    pub(super) selector_sink_pad_1: gst::Pad,
+    pub(super) selector_sink_pad_main: gst::Pad,
+    pub(super) selector_sink_pad_down: gst::Pad,
     pub(super) video_scale: gst::Element,
     pub(super) video_convert_caps: gst::Element,
     pub(super) queue: gst::Element,
@@ -312,20 +293,18 @@ impl PipSink {
             .property("sync-streams", false)
             .build()
             .map_err(InnerError::GlibBool)?;
-        let selector_sink_pad_0 =
+        let selector_sink_pad_main =
             selector
                 .request_pad_simple("sink_%u")
                 .ok_or(InnerError::RequestPad(
                     "Request pip select pad 0".to_string(),
                 ))?;
-        let selector_sink_pad_1 =
+        let selector_sink_pad_down =
             selector
                 .request_pad_simple("sink_%u")
                 .ok_or(InnerError::RequestPad(
                     "Request main select pad 1".to_string(),
                 ))?;
-        // selector_sink_pad_0.set_property("always-ok", true);
-        // selector_sink_pad_1.set_property("always-ok", true);
         let video_scale = gst::ElementFactory::make("videoscale")
             .name("pip_videoscale")
             .build()
@@ -352,8 +331,8 @@ impl PipSink {
 
         Ok(PipSink {
             selector,
-            selector_sink_pad_0,
-            selector_sink_pad_1,
+            selector_sink_pad_main,
+            selector_sink_pad_down,
             video_scale,
             video_convert_caps: video_scale_caps,
             queue,
@@ -389,6 +368,7 @@ impl Elements {
         self.main = MainSrcElements::new()?;
         self.main.add_to_pipeline(pipeline)?;
         self.main.link()?;
+        self.link_main_to_sinks()?;
 
         Ok(())
     }
@@ -398,6 +378,7 @@ impl Elements {
         self.down = DownSrcElements::new()?;
         self.down.add_to_pipeline(pipeline)?;
         self.down.link()?;
+        self.link_down_to_sinks()?;
 
         Ok(())
     }
@@ -416,21 +397,42 @@ impl Elements {
         self.main_sink.link()?;
         self.pip_sink.link()?;
 
-        let pad = self.main.queue_0.static_pad("src").unwrap();
-        pad.link(&self.main_sink.selector_sink_pad_0)
-            .map_err(InnerError::Link)?;
+        self.link_main_to_sinks()?;
+        self.link_down_to_sinks()?;
 
-        let pad = self.down.queue_0.static_pad("src").unwrap();
-        pad.link(&self.main_sink.selector_sink_pad_1)
-            .map_err(InnerError::Link)?;
+        Ok(())
+    }
 
-        let pad = self.main.queue_1.static_pad("src").unwrap();
-        pad.link(&self.pip_sink.selector_sink_pad_0)
-            .map_err(InnerError::Link)?;
+    fn link_main_to_sinks(&self) -> Result<(), InnerError> {
+        let pad = self.main.queue_0_main_src.static_pad("src").unwrap();
+        if !pad.is_linked() {
+            tracing::info!("linking main to main sink");
+            pad.link(&self.main_sink.selector_sink_pad_main)
+                .map_err(InnerError::Link)?;
+        }
 
-        let pad = self.down.queue_1.static_pad("src").unwrap();
-        pad.link(&self.pip_sink.selector_sink_pad_1)
-            .map_err(InnerError::Link)?;
+        let pad = self.main.queue_1_pip_src.static_pad("src").unwrap();
+        if !pad.is_linked() {
+            tracing::info!("linking main to pip sink");
+            pad.link(&self.pip_sink.selector_sink_pad_main)
+                .map_err(InnerError::Link)?;
+        }
+
+        Ok(())
+    }
+
+    fn link_down_to_sinks(&self) -> Result<(), InnerError> {
+        let pad = self.down.queue_0_main_src.static_pad("src").unwrap();
+        if !pad.is_linked() {
+            pad.link(&self.main_sink.selector_sink_pad_down)
+                .map_err(InnerError::Link)?;
+        }
+
+        let pad = self.down.queue_1_pip_src.static_pad("src").unwrap();
+        if !pad.is_linked() {
+            pad.link(&self.pip_sink.selector_sink_pad_down)
+                .map_err(InnerError::Link)?;
+        }
 
         Ok(())
     }
