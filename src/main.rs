@@ -9,7 +9,9 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 mod gst_elements;
 mod gst_error;
+mod gst_pipeline;
 mod gst_probe;
+mod gst_source;
 mod gst_thread;
 
 fn get_log_dir(pkg_name: &str) -> PathBuf {
@@ -46,7 +48,7 @@ fn main() -> Result<()> {
         .with(fmt::layer().with_writer(std::io::stdout))
         .init();
 
-    tracing::info!("STARTING");
+    tracing::info!("Staring");
 
     let thread = GstThread::start();
 
@@ -66,27 +68,27 @@ fn main() -> Result<()> {
         if split.len() == 2 {
             if split[0] == "selmain" {
                 if split[1] == "main" {
-                    thread.send_cmd(gst_thread::Cmd::SelectMain(gst_thread::Source::Main));
+                    thread.send_cmd(gst_thread::Cmd::SelectMain(gst_source::Source::Main));
                 } else if split[1] == "down" {
-                    thread.send_cmd(gst_thread::Cmd::SelectMain(gst_thread::Source::Down));
+                    thread.send_cmd(gst_thread::Cmd::SelectMain(gst_source::Source::Down));
                 }
             } else if split[0] == "selpip" {
                 if split[1] == "main" {
-                    thread.send_cmd(gst_thread::Cmd::SelectPip(gst_thread::Source::Main));
+                    thread.send_cmd(gst_thread::Cmd::SelectPip(gst_source::Source::Main));
                 } else if split[1] == "down" {
-                    thread.send_cmd(gst_thread::Cmd::SelectPip(gst_thread::Source::Down));
+                    thread.send_cmd(gst_thread::Cmd::SelectPip(gst_source::Source::Down));
                 }
             } else if split[0] == "start" {
                 if split[1] == "main" {
-                    thread.send_cmd(gst_thread::Cmd::Start(gst_thread::Source::Main));
+                    thread.send_cmd(gst_thread::Cmd::Start(gst_source::Source::Main));
                 } else if split[1] == "down" {
-                    thread.send_cmd(gst_thread::Cmd::Start(gst_thread::Source::Down));
+                    thread.send_cmd(gst_thread::Cmd::Start(gst_source::Source::Down));
                 }
             } else if split[0] == "stop" {
                 if split[1] == "main" {
-                    thread.send_cmd(gst_thread::Cmd::Stop(gst_thread::Source::Main));
+                    thread.send_cmd(gst_thread::Cmd::Stop(gst_source::Source::Main));
                 } else if split[1] == "down" {
-                    thread.send_cmd(gst_thread::Cmd::Stop(gst_thread::Source::Down));
+                    thread.send_cmd(gst_thread::Cmd::Stop(gst_source::Source::Down));
                 }
             }
         } else if split.len() == 1 {

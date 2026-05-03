@@ -3,6 +3,10 @@ use gstreamer as gst;
 
 use crate::gst_error::InnerError;
 
+pub(super) trait SourceTrait {
+    fn get_pip_src_pad(&self) -> Result<gst::Pad, InnerError>;
+}
+
 pub(super) trait ElementTrait {
     fn add_to_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         pipeline
@@ -27,13 +31,7 @@ pub(super) trait ElementTrait {
         Ok(e)
     }
 
-    fn set_state(&self, state: gst::State) -> Result<(), InnerError> {
-        for element in self.get_elements() {
-            element.set_state(state).map_err(InnerError::StateChange)?;
-        }
-
-        Ok(())
-    }
+    fn set_state(&self, state: gst::State) -> Result<(), InnerError>;
 
     fn is_all_null_state(&self) -> bool {
         for element in self.get_elements() {
@@ -48,25 +46,33 @@ pub(super) trait ElementTrait {
     fn get_elements(&self) -> Vec<&gst::Element>;
 }
 
-pub(super) struct MainSrcElements {
-    pub(super) src: gst::Element,
-    pub(super) caps: gst::Element,
-    pub(super) tee: gst::Element,
-    pub(super) queue_0_main_src: gst::Element,
-    pub(super) queue_1_pip_src: gst::Element,
+pub(crate) struct MainSrcElements {
+    pub(crate) src: gst::Element,
+    pub(crate) caps: gst::Element,
+    pub(crate) tee: gst::Element,
+    pub(crate) queue_main_src: gst::Element,
+    pub(crate) queue_pip_src: gst::Element,
 }
 
 impl ElementTrait for MainSrcElements {
+    fn set_state(&self, state: gst::State) -> Result<(), InnerError> {
+        for element in self.get_elements() {
+            element.set_state(state).map_err(InnerError::StateChange)?;
+        }
+
+        Ok(())
+    }
+
     fn link(&self) -> Result<(), InnerError> {
         gst::Element::link_many([&self.src, &self.caps, &self.tee])
             .map_err(InnerError::GlibBool)?;
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
-        let sink_pad = self.queue_0_main_src.static_pad("sink").unwrap();
+        let sink_pad = self.queue_main_src.static_pad("sink").unwrap();
         src_pad.link(&sink_pad).unwrap();
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
-        let sink_pad = self.queue_1_pip_src.static_pad("sink").unwrap();
+        let sink_pad = self.queue_pip_src.static_pad("sink").unwrap();
         src_pad.link(&sink_pad).unwrap();
 
         Ok(())
@@ -77,8 +83,8 @@ impl ElementTrait for MainSrcElements {
             &self.src,
             &self.caps,
             &self.tee,
-            &self.queue_0_main_src,
-            &self.queue_1_pip_src,
+            &self.queue_main_src,
+            &self.queue_pip_src,
         ]
     }
 }
@@ -106,13 +112,13 @@ impl MainSrcElements {
             // .property("allow-not-linked", true)
             .build()
             .map_err(InnerError::GlibBool)?;
-        let queue_0_main_src = gst::ElementFactory::make("queue")
+        let queue_main_src = gst::ElementFactory::make("queue")
             .name("main_queue_0")
             .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
             .build()
             .map_err(InnerError::GlibBool)?;
-        let queue_1_pip_src = gst::ElementFactory::make("queue")
+        let queue_pip_src = gst::ElementFactory::make("queue")
             .name("main_queue_1")
             .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
@@ -123,31 +129,49 @@ impl MainSrcElements {
             src,
             caps,
             tee,
-            queue_0_main_src,
-            queue_1_pip_src,
+            queue_main_src,
+            queue_pip_src,
         })
+    }
+
+    pub(crate) fn get_main_src_pad(&self) -> Result<gst::Pad, InnerError> {
+        let pad = self.queue_main_src.static_pad("src").unwrap();
+        Ok(pad)
+    }
+
+    pub(crate) fn get_pip_src_pad(&self) -> Result<gst::Pad, InnerError> {
+        let pad = self.queue_pip_src.static_pad("src").unwrap();
+        Ok(pad)
     }
 }
 
-pub(super) struct DownSrcElements {
-    pub(super) src: gst::Element,
-    pub(super) caps: gst::Element,
-    pub(super) tee: gst::Element,
-    pub(super) queue_0_main_src: gst::Element,
-    pub(super) queue_1_pip_src: gst::Element,
+pub(crate) struct DownSrcElements {
+    pub(crate) src: gst::Element,
+    pub(crate) caps: gst::Element,
+    pub(crate) tee: gst::Element,
+    pub(crate) queue_main_src: gst::Element,
+    pub(crate) queue_pip_src: gst::Element,
 }
 
 impl ElementTrait for DownSrcElements {
+    fn set_state(&self, state: gst::State) -> Result<(), InnerError> {
+        for element in self.get_elements() {
+            element.set_state(state).map_err(InnerError::StateChange)?;
+        }
+
+        Ok(())
+    }
+
     fn link(&self) -> Result<(), InnerError> {
         gst::Element::link_many([&self.src, &self.caps, &self.tee])
             .map_err(InnerError::GlibBool)?;
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
-        let sink_pad = self.queue_0_main_src.static_pad("sink").unwrap();
+        let sink_pad = self.queue_main_src.static_pad("sink").unwrap();
         src_pad.link(&sink_pad).unwrap();
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
-        let sink_pad = self.queue_1_pip_src.static_pad("sink").unwrap();
+        let sink_pad = self.queue_pip_src.static_pad("sink").unwrap();
         src_pad.link(&sink_pad).unwrap();
 
         Ok(())
@@ -158,8 +182,8 @@ impl ElementTrait for DownSrcElements {
             &self.src,
             &self.caps,
             &self.tee,
-            &self.queue_0_main_src,
-            &self.queue_1_pip_src,
+            &self.queue_main_src,
+            &self.queue_pip_src,
         ]
     }
 }
@@ -186,13 +210,13 @@ impl DownSrcElements {
             .name("down_tee")
             .build()
             .map_err(InnerError::GlibBool)?;
-        let queue_0_main_src = gst::ElementFactory::make("queue")
+        let queue_main_src = gst::ElementFactory::make("queue")
             .name("down_queue_0")
             .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
             .build()
             .map_err(InnerError::GlibBool)?;
-        let queue_1_pip_src = gst::ElementFactory::make("queue")
+        let queue_pip_src = gst::ElementFactory::make("queue")
             .name("down_queue_1")
             .property("max-size-buffers", 1u32)
             .property_from_str("leaky", "downstream")
@@ -203,9 +227,19 @@ impl DownSrcElements {
             src,
             caps,
             tee,
-            queue_0_main_src,
-            queue_1_pip_src,
+            queue_main_src,
+            queue_pip_src,
         })
+    }
+
+    pub(crate) fn get_main_src_pad(&self) -> Result<gst::Pad, InnerError> {
+        let pad = self.queue_main_src.static_pad("src").unwrap();
+        Ok(pad)
+    }
+
+    pub(crate) fn get_pip_src_pad(&self) -> Result<gst::Pad, InnerError> {
+        let pad = self.queue_pip_src.static_pad("src").unwrap();
+        Ok(pad)
     }
 }
 
@@ -218,6 +252,14 @@ pub(super) struct MainSink {
 }
 
 impl ElementTrait for MainSink {
+    fn set_state(&self, state: gst::State) -> Result<(), InnerError> {
+        for element in self.get_elements() {
+            element.set_state(state).map_err(InnerError::StateChange)?;
+        }
+
+        Ok(())
+    }
+
     fn get_elements(&self) -> Vec<&gstreamer::Element> {
         vec![&self.selector, &self.queue, &self.sink]
     }
@@ -275,6 +317,14 @@ pub(super) struct PipSink {
 }
 
 impl ElementTrait for PipSink {
+    fn set_state(&self, state: gst::State) -> Result<(), InnerError> {
+        for element in self.get_elements() {
+            element.set_state(state).map_err(InnerError::StateChange)?;
+        }
+
+        Ok(())
+    }
+
     fn get_elements(&self) -> Vec<&gstreamer::Element> {
         vec![
             &self.selector,
@@ -363,6 +413,13 @@ impl Elements {
         })
     }
 
+    pub(super) fn set_state(&mut self, state: gst::State) {
+        self.main.set_state(state).unwrap();
+        self.down.set_state(state).unwrap();
+        self.main_sink.set_state(state).unwrap();
+        self.pip_sink.set_state(state).unwrap();
+    }
+
     pub(super) fn recreate_main(&mut self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         self.main.remove_from_pipeline(pipeline)?;
         self.main = MainSrcElements::new()?;
@@ -404,14 +461,14 @@ impl Elements {
     }
 
     fn link_main_to_sinks(&self) -> Result<(), InnerError> {
-        let pad = self.main.queue_0_main_src.static_pad("src").unwrap();
+        let pad = self.main.queue_main_src.static_pad("src").unwrap();
         if !pad.is_linked() {
             tracing::info!("linking main to main sink");
             pad.link(&self.main_sink.selector_sink_pad_main)
                 .map_err(InnerError::Link)?;
         }
 
-        let pad = self.main.queue_1_pip_src.static_pad("src").unwrap();
+        let pad = self.main.queue_pip_src.static_pad("src").unwrap();
         if !pad.is_linked() {
             tracing::info!("linking main to pip sink");
             pad.link(&self.pip_sink.selector_sink_pad_main)
@@ -422,13 +479,13 @@ impl Elements {
     }
 
     fn link_down_to_sinks(&self) -> Result<(), InnerError> {
-        let pad = self.down.queue_0_main_src.static_pad("src").unwrap();
+        let pad = self.down.queue_main_src.static_pad("src").unwrap();
         if !pad.is_linked() {
             pad.link(&self.main_sink.selector_sink_pad_down)
                 .map_err(InnerError::Link)?;
         }
 
-        let pad = self.down.queue_1_pip_src.static_pad("src").unwrap();
+        let pad = self.down.queue_pip_src.static_pad("src").unwrap();
         if !pad.is_linked() {
             pad.link(&self.pip_sink.selector_sink_pad_down)
                 .map_err(InnerError::Link)?;
