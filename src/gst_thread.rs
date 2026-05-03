@@ -83,63 +83,6 @@ impl GstThread {
                 true
             });
 
-            // while (true) {
-            //     let msg = bus.timed_pop_filtered(
-            //         gst::ClockTime::from_mseconds(100),
-            //         &[MessageType::Error, MessageType::Eos],
-            //     );
-            //
-            //     use gst::MessageView;
-            //     match msg {
-            //         Some(msg) => match msg.view() {
-            //             MessageView::Error(err) => {
-            //                 tracing::error!(
-            //                     "Error recieved from element {:?}: {}",
-            //                     err.src().map(|s| s.path_string()),
-            //                     err.error()
-            //                 );
-            //                 tracing::error!("Debugging information: {:?}", err.debug());
-            //                 break;
-            //             }
-            //             MessageView::Eos(_) => {
-            //                 tracing::info!("eos");
-            //             }
-            //             _ => {}
-            //         },
-            //         None => {
-            //             // if main_src_probe.is_stale() {
-            //             //     Self::handle_main_stopped(&mut elements);
-            //             // }
-            //             // if down_src_probe.is_stale() {
-            //             //     tracing::info!("down stale");
-            //             // }
-            //
-            //             let cmd = recv_to_thread.try_recv().unwrap_or(Cmd::None);
-            //             match cmd {
-            //                 Cmd::Start(source) => match source {
-            //                     Source::Main => {
-            //                         // todo!();
-            //                         // TODO Check if already running.
-            //                         elements.recreate_main(&pipeline).unwrap();
-            //                         // let queue_src_pad =
-            //                         //     elements.main.queue.static_pad("src").unwrap();
-            //                         // if !queue_src_pad.is_linked() {
-            //                         //     println!("re-linking");
-            //                         //     queue_src_pad
-            //                         //         .link(&elements.main_sink.selector_sink_pad_0)
-            //                         //         .unwrap();
-            //                         // }
-            //
-            //                         elements.main.set_state(gst::State::Playing).unwrap();
-            //                     }
-            //                     Source::Down => {
-            //                         let _ = elements.down.src.set_state(gst::State::Playing);
-            //                     }
-            //                 },
-            //             }
-            //         }
-            //     }
-            // }
             Ok(())
         });
         Self {
