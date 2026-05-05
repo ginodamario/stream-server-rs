@@ -145,6 +145,55 @@ impl MainSrcElements {
     }
 }
 
+pub(crate) struct MainSaveElements {
+    pub(crate) valve: gst::Element,
+    pub(crate) enc: gst::Element,
+    pub(crate) parse: gst::Element,
+    pub(crate) mux: gst::Element,
+    pub(crate) queue: gst::Element,
+    pub(crate) sink: gst::Element,
+}
+
+impl ElementTrait for MainSaveElements {
+    fn set_state(&self, state: gst::State) -> Result<(), InnerError> {
+        for element in self.get_elements() {
+            element.set_state(state).map_err(InnerError::StateChange)?;
+        }
+
+        match state {
+            gst::State::VoidPending | gst::State::Null | gst::State::Ready | gst::State::Paused => {
+                self.valve.set_property("drop", true)
+            }
+            gst::State::Playing => self.valve.set_property("drop", false),
+        }
+
+        Ok(())
+    }
+
+    fn get_elements(&self) -> Vec<&gst::Element> {
+        vec![
+            &self.valve,
+            &self.enc,
+            &self.parse,
+            &self.mux,
+            &self.queue,
+            &self.sink,
+        ]
+    }
+}
+
+impl MainSaveElements {
+    fn new() -> Result<Self, InnerError> {
+        let valve = gst::ElementFactory::make("valve")
+            .name("main_save_valve")
+            .property("drop", true)
+            .build()
+            .map_err(InnerError::GlibBool)?;
+
+        Ok(())
+    }
+}
+
 pub(crate) struct DownSrcElements {
     pub(crate) src: gst::Element,
     pub(crate) caps: gst::Element,
