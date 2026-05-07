@@ -51,6 +51,8 @@ impl Pipeline {
             match msg {
                 Some(msg) => match msg.view() {
                     MessageView::Error(err) => {
+                        // TODO: Handle if file save errors. Should tear down pipeline and restart
+                        // it.
                         tracing::error!(
                             "Error recieved from element {:?}: {}",
                             err.src().map(|s| s.path_string()),
@@ -123,6 +125,19 @@ impl Pipeline {
             .pip_sink
             .selector
             .set_property("active-pad", pad);
+    }
+
+    pub(crate) fn set_main_save_filename(&self, filename: &str) {
+        self.elements.main_save.sink.set_property_from_str("location", filename);
+    }
+
+    pub(crate) fn start_main_save(&mut self) -> Result<(), InnerError> {
+        self.elements.main_save.add_to_pipeline(&self.pipeline).unwrap();
+        self.elements.main_save.link().unwrap();
+        self.elements.link_main_to_save().unwrap();
+        self.elements.main_save.set_state(gst::State::Playing).unwrap();
+
+        Ok(())
     }
 
     pub(crate) fn recreate_main(&mut self) {

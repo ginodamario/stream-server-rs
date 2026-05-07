@@ -19,8 +19,10 @@ pub enum Cmd {
     None,
     SelectMain(Source),
     SelectPip(Source),
+    SetSaveFile(Source, String),
     Stop(Source),
     Start(Source),
+    StartSave(Source),
     Exit,
 }
 
@@ -44,42 +46,49 @@ impl GstThread {
 
             pipeline.set_state(gst::State::Playing);
 
-            pipeline.run_loop(|s| {
+            pipeline.run_loop(|pipeline| {
                 let cmd = recv_to_thread.try_recv().unwrap_or(Cmd::None);
                 match cmd {
                     Cmd::None => {}
                     Cmd::SelectMain(source) => {
-                        s.switch_main_sink(source);
+                        pipeline.switch_main_sink(source);
                     }
                     Cmd::SelectPip(source) => {
-                        s.switch_pip_sink(source);
+                        pipeline.switch_pip_sink(source);
                     }
                     Cmd::Stop(source) => match source {
                         Source::Main => {
-                            s.simulate_main_stop();
+                            pipeline.simulate_main_stop();
                         }
                         Source::Down => {
-                            s.simulate_down_stop();
+                            pipeline.simulate_down_stop();
                         }
                     },
                     Cmd::Start(source) => match source {
                         Source::Main => {
                             // TODO Check if already running.
-                            s.recreate_main();
-                            s.set_main_state(gst::State::Playing);
+                            pipeline.recreate_main();
+                            pipeline.set_main_state(gst::State::Playing);
                         }
                         Source::Down => {
-                            s.recreate_down();
-                            s.set_down_state(gst::State::Playing);
+                            pipeline.recreate_down();
+                            pipeline.set_down_state(gst::State::Playing);
                         }
                     },
                     Cmd::Exit => {
                         // Ignore any error just exit.
-                        s.set_state(gst::State::Null);
+                        pipeline.set_state(gst::State::Null);
                         tracing::info!("exiting gst thread");
                         return false;
                     }
-                    _ => {}
+                    Cmd::SetSaveFile(source, filename) => match source {
+                        Source::Main => pipeline.set_main_save_filename(&filename),
+                        Source::Down => todo!(),
+                    }
+                    Cmd::StartSave(source) => match source {
+                        Source::Main => pipeline.start_main_save().unwrap(),
+                        Source::Down => todo!(),
+                    }
                 }
 
                 true

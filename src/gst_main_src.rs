@@ -73,7 +73,7 @@ impl MainSrcElements {
             .map_err(InnerError::GlibBool)?;
         let tee = gst::ElementFactory::make("tee")
             .name("main_tee")
-            // .property("allow-not-linked", true)
+            .property("allow-not-linked", true)
             .build()
             .map_err(InnerError::GlibBool)?;
         let queue_main_src = gst::ElementFactory::make("queue")

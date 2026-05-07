@@ -15,6 +15,7 @@ mod gst_source;
 mod gst_thread;
 mod gst_main_src;
 mod gst_element_trait;
+mod gst_main_save;
 
 fn get_log_dir(pkg_name: &str) -> PathBuf {
     let fallback_log_dir = PathBuf::from("./");
@@ -91,6 +92,12 @@ fn main() -> Result<()> {
                     thread.send_cmd(gst_thread::Cmd::Stop(gst_source::Source::Main));
                 } else if split[1] == "down" {
                     thread.send_cmd(gst_thread::Cmd::Stop(gst_source::Source::Down));
+                }
+            } else if split[0] == "filemain" {
+                thread.send_cmd(gst_thread::Cmd::SetSaveFile(gst_source::Source::Main, split[1].to_string()));
+            } else if split[0] == "startsave" {
+                if split[1] == "main" {
+                    thread.send_cmd(gst_thread::Cmd::StartSave(gst_source::Source::Main));
                 }
             }
         } else if split.len() == 1 {
