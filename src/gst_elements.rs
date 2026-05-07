@@ -2,148 +2,9 @@ use gst::prelude::*;
 use gstreamer as gst;
 
 use crate::gst_error::InnerError;
+use crate::gst_element_trait::ElementTrait;
+use crate::gst_main_src::MainSrcElements;
 
-pub(super) trait SourceTrait {
-    fn get_pip_src_pad(&self) -> Result<gst::Pad, InnerError>;
-}
-
-pub(super) trait ElementTrait {
-    fn add_to_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
-        pipeline
-            .add_many(self.get_elements())
-            .map_err(InnerError::GlibBool)
-    }
-
-    fn remove_from_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
-        pipeline
-            .remove_many(self.get_elements())
-            .map_err(InnerError::GlibBool)
-    }
-
-    fn link(&self) -> Result<(), InnerError> {
-        gst::Element::link_many(self.get_elements()).map_err(InnerError::GlibBool)?;
-
-        Ok(())
-    }
-
-    fn get_last(&self) -> Result<&gst::Element, InnerError> {
-        let e = *self.get_elements().last().ok_or(InnerError::GetElement)?;
-        Ok(e)
-    }
-
-    fn set_state(&self, state: gst::State) -> Result<(), InnerError>;
-
-    fn is_all_null_state(&self) -> bool {
-        for element in self.get_elements() {
-            let state = element.current_state();
-            if state != gst::State::Null {
-                return false;
-            }
-        }
-        true
-    }
-
-    fn get_elements(&self) -> Vec<&gst::Element>;
-}
-
-pub(crate) struct MainSrcElements {
-    pub(crate) src: gst::Element,
-    pub(crate) caps: gst::Element,
-    pub(crate) tee: gst::Element,
-    pub(crate) queue_main_src: gst::Element,
-    pub(crate) queue_pip_src: gst::Element,
-}
-
-impl ElementTrait for MainSrcElements {
-    fn set_state(&self, state: gst::State) -> Result<(), InnerError> {
-        for element in self.get_elements() {
-            element.set_state(state).map_err(InnerError::StateChange)?;
-        }
-
-        Ok(())
-    }
-
-    fn link(&self) -> Result<(), InnerError> {
-        gst::Element::link_many([&self.src, &self.caps, &self.tee])
-            .map_err(InnerError::GlibBool)?;
-
-        let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
-        let sink_pad = self.queue_main_src.static_pad("sink").unwrap();
-        src_pad.link(&sink_pad).unwrap();
-
-        let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
-        let sink_pad = self.queue_pip_src.static_pad("sink").unwrap();
-        src_pad.link(&sink_pad).unwrap();
-
-        Ok(())
-    }
-
-    fn get_elements(&self) -> Vec<&gst::Element> {
-        vec![
-            &self.src,
-            &self.caps,
-            &self.tee,
-            &self.queue_main_src,
-            &self.queue_pip_src,
-        ]
-    }
-}
-
-impl MainSrcElements {
-    fn new() -> Result<Self, InnerError> {
-        let src = gst::ElementFactory::make("videotestsrc")
-            .name("main_src")
-            .property_from_str("pattern", "smpte")
-            .property_from_str("is-live", "true")
-            .build()
-            .map_err(InnerError::GlibBool)?;
-        let caps = gst::Caps::builder("video/x-raw")
-            .field("format", "NV12")
-            .field("width", 1920)
-            .field("height", 1080)
-            .field("framerate", gst::Fraction::new(30, 1))
-            .build();
-        let caps = gst::ElementFactory::make("capsfilter")
-            .property("caps", &caps)
-            .build()
-            .map_err(InnerError::GlibBool)?;
-        let tee = gst::ElementFactory::make("tee")
-            .name("main_tee")
-            // .property("allow-not-linked", true)
-            .build()
-            .map_err(InnerError::GlibBool)?;
-        let queue_main_src = gst::ElementFactory::make("queue")
-            .name("main_queue_0")
-            .property("max-size-buffers", 1u32)
-            .property_from_str("leaky", "downstream")
-            .build()
-            .map_err(InnerError::GlibBool)?;
-        let queue_pip_src = gst::ElementFactory::make("queue")
-            .name("main_queue_1")
-            .property("max-size-buffers", 1u32)
-            .property_from_str("leaky", "downstream")
-            .build()
-            .map_err(InnerError::GlibBool)?;
-
-        Ok(MainSrcElements {
-            src,
-            caps,
-            tee,
-            queue_main_src,
-            queue_pip_src,
-        })
-    }
-
-    pub(crate) fn get_main_src_pad(&self) -> Result<gst::Pad, InnerError> {
-        let pad = self.queue_main_src.static_pad("src").unwrap();
-        Ok(pad)
-    }
-
-    pub(crate) fn get_pip_src_pad(&self) -> Result<gst::Pad, InnerError> {
-        let pad = self.queue_pip_src.static_pad("src").unwrap();
-        Ok(pad)
-    }
-}
 
 pub(crate) struct MainSaveElements {
     pub(crate) valve: gst::Element,
@@ -189,8 +50,37 @@ impl MainSaveElements {
             .property("drop", true)
             .build()
             .map_err(InnerError::GlibBool)?;
+        let enc = gst::ElementFactory::make("vah265enc")
+            .name("main_save_enc")
+            .property("bitrate", 2048u32)
+            .build()
+            .map_err(InnerError::GlibBool)?;
+        let parse = gst::ElementFactory::make("h265parse")
+            .name("main_save_parse")
+            .build()
+            .map_err(InnerError::GlibBool)?;
+        let mux = gst::ElementFactory::make("matroskamux")
+            .name("main_save_mux")
+            .build()
+            .map_err(InnerError::GlibBool)?;
+        let queue = gst::ElementFactory::make("queue")
+            .property("max-size-buffers", 300u32)
+            .property_from_str("leaky", "downstream")
+            .build()
+            .map_err(InnerError::GlibBool)?;
+        let sink = gst::ElementFactory::make("filesink")
+            .property_from_str("location", "main.mkv")
+            .build()
+            .map_err(InnerError::GlibBool)?;
 
-        Ok(())
+        Ok(MainSaveElements {
+            valve,
+            enc,
+            parse,
+            mux,
+            queue,
+            sink,
+        })
     }
 }
 
@@ -445,6 +335,7 @@ pub(super) struct Elements {
     pub(super) down: DownSrcElements,
     pub(super) main_sink: MainSink,
     pub(super) pip_sink: PipSink,
+    pub(super) main_save: MainSaveElements,
 }
 
 impl Elements {
@@ -453,12 +344,14 @@ impl Elements {
         let down = DownSrcElements::new()?;
         let main_sink = MainSink::new()?;
         let pip_sink = PipSink::new()?;
+        let main_save = MainSaveElements::new()?;
 
         Ok(Elements {
             main,
             down,
             main_sink,
             pip_sink,
+            main_save,
         })
     }
 
@@ -494,6 +387,7 @@ impl Elements {
         self.down.add_to_pipeline(pipeline)?;
         self.main_sink.add_to_pipeline(pipeline)?;
         self.pip_sink.add_to_pipeline(pipeline)?;
+        self.main_save.add_to_pipeline(pipeline)?;
         Ok(())
     }
 
@@ -502,6 +396,7 @@ impl Elements {
         self.down.link()?;
         self.main_sink.link()?;
         self.pip_sink.link()?;
+        self.main_save.link()?;
 
         self.link_main_to_sinks()?;
         self.link_down_to_sinks()?;
@@ -522,6 +417,12 @@ impl Elements {
             tracing::info!("linking main to pip sink");
             pad.link(&self.pip_sink.selector_sink_pad_main)
                 .map_err(InnerError::Link)?;
+        }
+
+        let src_pad = self.main.get_save_src_pad().unwrap();
+        let sink_pad = self.main_save.valve.static_pad("sink").unwrap();
+        if !src_pad.is_linked() {
+            src_pad.link(&sink_pad).unwrap();
         }
 
         Ok(())

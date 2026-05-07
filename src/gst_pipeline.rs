@@ -1,7 +1,8 @@
 use gst::{MessageType, prelude::*};
 use gstreamer as gst;
 
-use crate::gst_elements::{ElementTrait, Elements};
+use crate::gst_elements::{Elements};
+use crate::gst_element_trait::ElementTrait;
 use crate::gst_error::{Error, InnerError};
 use crate::gst_probe::GstProbe;
 use crate::gst_source::Source;

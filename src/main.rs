@@ -13,6 +13,8 @@ mod gst_pipeline;
 mod gst_probe;
 mod gst_source;
 mod gst_thread;
+mod gst_main_src;
+mod gst_element_trait;
 
 fn get_log_dir(pkg_name: &str) -> PathBuf {
     let fallback_log_dir = PathBuf::from("./");
@@ -48,7 +50,7 @@ fn main() -> Result<()> {
         .with(fmt::layer().with_writer(std::io::stdout))
         .init();
 
-    tracing::info!("Staring");
+    tracing::info!("Starting");
 
     let thread = GstThread::start();
 
