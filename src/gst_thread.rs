@@ -7,10 +7,9 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::gst_element_trait::ElementTrait;
+use crate::gst_elements::ElementTrait;
 use crate::gst_elements::Elements;
 use crate::gst_error::{Error, InnerError};
-use crate::gst_main_src::MainSrcElements;
 use crate::gst_pipeline::Pipeline;
 use crate::gst_probe::GstProbe;
 use crate::gst_source::Source;

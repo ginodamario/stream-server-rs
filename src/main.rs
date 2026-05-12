@@ -7,14 +7,8 @@ use std::path::PathBuf;
 use tracing_appender::rolling;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-mod gst_down_src;
-mod gst_element_trait;
 mod gst_elements;
 mod gst_error;
-mod gst_main_save;
-mod gst_main_sink;
-mod gst_main_src;
-mod gst_pip_sink;
 mod gst_pipeline;
 mod gst_probe;
 mod gst_source;

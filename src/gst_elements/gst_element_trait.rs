@@ -3,7 +3,7 @@ use gstreamer as gst;
 
 use crate::gst_error::InnerError;
 
-pub(super) trait ElementTrait {
+pub(crate) trait ElementTrait {
     fn add_to_pipeline(&self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         pipeline
             .add_many(self.get_elements())

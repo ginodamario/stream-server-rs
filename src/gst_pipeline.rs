@@ -1,9 +1,9 @@
 use gst::{MessageType, prelude::*};
 use gstreamer as gst;
 
-use crate::gst_elements::{Elements};
-use crate::gst_element_trait::ElementTrait;
-use crate::gst_error::{Error, InnerError};
+use crate::gst_elements::ElementTrait;
+use crate::gst_elements::Elements;
+use crate::gst_error::InnerError;
 use crate::gst_probe::GstProbe;
 use crate::gst_source::Source;
 
@@ -128,14 +128,23 @@ impl Pipeline {
     }
 
     pub(crate) fn set_main_save_filename(&self, filename: &str) {
-        self.elements.main_save.sink.set_property_from_str("location", filename);
+        self.elements
+            .main_save
+            .sink
+            .set_property_from_str("location", filename);
     }
 
     pub(crate) fn start_main_save(&mut self) -> Result<(), InnerError> {
-        self.elements.main_save.add_to_pipeline(&self.pipeline).unwrap();
+        self.elements
+            .main_save
+            .add_to_pipeline(&self.pipeline)
+            .unwrap();
         self.elements.main_save.link().unwrap();
         self.elements.link_main_to_save().unwrap();
-        self.elements.main_save.set_state(gst::State::Playing).unwrap();
+        self.elements
+            .main_save
+            .set_state(gst::State::Playing)
+            .unwrap();
 
         Ok(())
     }

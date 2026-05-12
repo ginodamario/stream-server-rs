@@ -1,13 +1,21 @@
 use gst::prelude::*;
 use gstreamer as gst;
 
-use crate::gst_down_src::DownSrcElements;
-use crate::gst_element_trait::ElementTrait;
+pub(crate) use gst_element_trait::ElementTrait;
+
 use crate::gst_error::InnerError;
-use crate::gst_main_save::MainSaveElements;
-use crate::gst_main_sink::MainSink;
-use crate::gst_main_src::MainSrcElements;
-use crate::gst_pip_sink::PipSink;
+use gst_down_src::DownSrcElements;
+use gst_main_save::MainSaveElements;
+use gst_main_sink::MainSink;
+use gst_main_src::MainSrcElements;
+use gst_pip_sink::PipSink;
+
+mod gst_down_src;
+mod gst_element_trait;
+mod gst_main_save;
+mod gst_main_sink;
+mod gst_main_src;
+mod gst_pip_sink;
 
 pub(super) struct Elements {
     pub(super) main: MainSrcElements,
