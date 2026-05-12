@@ -59,7 +59,7 @@ impl Pipeline {
                             err.error()
                         );
                         tracing::error!("Debugging information: {:?}", err.debug());
-                        break;
+                        // break;
                     }
                     MessageView::Eos(_) => {
                         tracing::info!("eos");

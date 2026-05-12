@@ -1,5 +1,6 @@
 use gst::prelude::*;
 use gstreamer as gst;
+use tracing_subscriber::layer::Identity;
 
 use crate::gst_elements::ElementTrait;
 use crate::gst_error::InnerError;
@@ -7,6 +8,7 @@ use crate::gst_error::InnerError;
 pub(crate) struct MainSrcElements {
     pub(crate) src: gst::Element,
     pub(crate) caps: gst::Element,
+    pub(crate) identity: gst::Element,
     pub(crate) tee: gst::Element,
     pub(crate) queue_main_src: gst::Element,
     pub(crate) queue_pip_src: gst::Element,
@@ -23,7 +25,7 @@ impl ElementTrait for MainSrcElements {
     }
 
     fn link(&self) -> Result<(), InnerError> {
-        gst::Element::link_many([&self.src, &self.caps, &self.tee])
+        gst::Element::link_many([&self.src, &self.caps, &self.identity, &self.tee])
             .map_err(InnerError::GlibBool)?;
 
         let src_pad = self.tee.request_pad_simple("src_%u").unwrap();
@@ -45,6 +47,7 @@ impl ElementTrait for MainSrcElements {
         vec![
             &self.src,
             &self.caps,
+            &self.identity,
             &self.tee,
             &self.queue_main_src,
             &self.queue_pip_src,
@@ -69,6 +72,12 @@ impl MainSrcElements {
             .build();
         let caps = gst::ElementFactory::make("capsfilter")
             .property("caps", &caps)
+            .build()
+            .map_err(InnerError::GlibBool)?;
+        let identity = gst::ElementFactory::make("identity")
+            .name("main_id")
+            // .property("eos-after", 60)
+            .property("error-after", 60)
             .build()
             .map_err(InnerError::GlibBool)?;
         let tee = gst::ElementFactory::make("tee")
@@ -98,6 +107,7 @@ impl MainSrcElements {
         Ok(MainSrcElements {
             src,
             caps,
+            identity,
             tee,
             queue_main_src,
             queue_pip_src,
