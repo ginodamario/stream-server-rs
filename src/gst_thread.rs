@@ -7,10 +7,10 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::gst_elements::{DownSrcElements, Elements, MainSink};
 use crate::gst_element_trait::ElementTrait;
-use crate::gst_main_src::MainSrcElements;
+use crate::gst_elements::{Elements, MainSink};
 use crate::gst_error::{Error, InnerError};
+use crate::gst_main_src::MainSrcElements;
 use crate::gst_pipeline::Pipeline;
 use crate::gst_probe::GstProbe;
 use crate::gst_source::Source;
@@ -84,11 +84,11 @@ impl GstThread {
                     Cmd::SetSaveFile(source, filename) => match source {
                         Source::Main => pipeline.set_main_save_filename(&filename),
                         Source::Down => todo!(),
-                    }
+                    },
                     Cmd::StartSave(source) => match source {
                         Source::Main => pipeline.start_main_save().unwrap(),
                         Source::Down => todo!(),
-                    }
+                    },
                 }
 
                 true

@@ -16,6 +16,7 @@ mod gst_thread;
 mod gst_main_src;
 mod gst_element_trait;
 mod gst_main_save;
+mod gst_down_src;
 
 fn get_log_dir(pkg_name: &str) -> PathBuf {
     let fallback_log_dir = PathBuf::from("./");
