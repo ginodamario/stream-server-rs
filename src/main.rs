@@ -7,16 +7,18 @@ use std::path::PathBuf;
 use tracing_appender::rolling;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
+mod gst_down_src;
+mod gst_element_trait;
 mod gst_elements;
 mod gst_error;
+mod gst_main_save;
+mod gst_main_sink;
+mod gst_main_src;
+mod gst_pip_sink;
 mod gst_pipeline;
 mod gst_probe;
 mod gst_source;
 mod gst_thread;
-mod gst_main_src;
-mod gst_element_trait;
-mod gst_main_save;
-mod gst_down_src;
 
 fn get_log_dir(pkg_name: &str) -> PathBuf {
     let fallback_log_dir = PathBuf::from("./");
@@ -95,7 +97,10 @@ fn main() -> Result<()> {
                     thread.send_cmd(gst_thread::Cmd::Stop(gst_source::Source::Down));
                 }
             } else if split[0] == "filemain" {
-                thread.send_cmd(gst_thread::Cmd::SetSaveFile(gst_source::Source::Main, split[1].to_string()));
+                thread.send_cmd(gst_thread::Cmd::SetSaveFile(
+                    gst_source::Source::Main,
+                    split[1].to_string(),
+                ));
             } else if split[0] == "startsave" {
                 if split[1] == "main" {
                     thread.send_cmd(gst_thread::Cmd::StartSave(gst_source::Source::Main));
