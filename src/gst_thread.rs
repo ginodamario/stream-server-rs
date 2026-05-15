@@ -46,6 +46,7 @@ impl GstThread {
             pipeline.set_state(gst::State::Playing);
 
             pipeline.run_loop(|pipeline| {
+                tracing::debug!("run loop callback");
                 let cmd = recv_to_thread.try_recv().unwrap_or(Cmd::None);
                 match cmd {
                     Cmd::None => {}
@@ -66,6 +67,7 @@ impl GstThread {
                     Cmd::Start(source) => match source {
                         Source::Main => {
                             // TODO Check if already running.
+                            tracing::debug!("recreate main");
                             pipeline.recreate_main();
                             pipeline.set_main_state(gst::State::Playing);
                         }

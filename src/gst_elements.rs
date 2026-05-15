@@ -49,7 +49,7 @@ impl Elements {
         self.pip_sink.set_state(state).unwrap();
     }
 
-    pub(super) fn recreate_main(&mut self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
+    pub(super) fn recreate_main_src(&mut self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         self.main.remove_from_pipeline(pipeline)?;
         self.main = MainSrcElements::new()?;
         self.main.add_to_pipeline(pipeline)?;
@@ -59,7 +59,7 @@ impl Elements {
         Ok(())
     }
 
-    pub(super) fn recreate_down(&mut self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
+    pub(super) fn recreate_down_src(&mut self, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         self.down.remove_from_pipeline(pipeline)?;
         self.down = DownSrcElements::new()?;
         self.down.add_to_pipeline(pipeline)?;
@@ -74,7 +74,7 @@ impl Elements {
         self.down.add_to_pipeline(pipeline)?;
         self.main_sink.add_to_pipeline(pipeline)?;
         self.pip_sink.add_to_pipeline(pipeline)?;
-        // self.main_save.add_to_pipeline(pipeline)?;
+
         Ok(())
     }
 

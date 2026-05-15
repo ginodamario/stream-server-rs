@@ -18,6 +18,7 @@ pub(crate) struct MainSrcElements {
 impl ElementTrait for MainSrcElements {
     fn set_state(&self, state: gst::State) -> Result<(), InnerError> {
         for element in self.get_elements() {
+            tracing::debug!("stopping: {element:?}");
             element.set_state(state).map_err(InnerError::StateChange)?;
         }
 

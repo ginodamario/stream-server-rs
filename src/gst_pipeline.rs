@@ -47,6 +47,7 @@ impl Pipeline {
                 &[MessageType::Error, MessageType::Eos],
             );
 
+            tracing::debug!("loop");
             use gst::MessageView;
             match msg {
                 Some(msg) => match msg.view() {
@@ -70,6 +71,7 @@ impl Pipeline {
                     if self.main_probe.is_stale() {
                         Self::teardown_main(&mut self.elements).unwrap();
                         self.main_probe.stop();
+                        tracing::debug!("teardown complete");
                     }
                     if self.down_probe.is_stale() {
                         Self::teardown_down(&mut self.elements).unwrap();
@@ -82,6 +84,7 @@ impl Pipeline {
                 }
             }
         }
+        tracing::debug!("loop exit");
     }
 
     pub(crate) fn set_state(&mut self, state: gst::State) {
@@ -150,20 +153,19 @@ impl Pipeline {
     }
 
     pub(crate) fn recreate_main(&mut self) {
-        self.elements.recreate_main(&self.pipeline).unwrap();
+        self.elements.recreate_main_src(&self.pipeline).unwrap();
         self.main_probe = GstProbe::new(&self.elements.main.src);
     }
 
     pub(crate) fn recreate_down(&mut self) {
-        self.elements.recreate_down(&self.pipeline).unwrap();
+        self.elements.recreate_down_src(&self.pipeline).unwrap();
         self.down_probe = GstProbe::new(&self.elements.down.src);
     }
 
     fn teardown_main(elements: &mut Elements) -> Result<(), InnerError> {
         tracing::info!("teardown main");
 
-        // Stop all main elements.
-        elements.main.set_state(gst::State::Null).unwrap();
+        tracing::debug!("teardown main end");
 
         let main_src_pad = elements.main.queue_main_src.static_pad("src").unwrap();
         let pip_src_pad = elements.main.queue_pip_src.static_pad("src").unwrap();
@@ -189,6 +191,9 @@ impl Pipeline {
                     .unlink(&elements.pip_sink.selector);
             }
         }
+
+        // Stop all main elements.
+        elements.main.set_state(gst::State::Null).unwrap();
 
         Ok(())
     }
