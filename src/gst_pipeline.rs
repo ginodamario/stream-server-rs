@@ -47,7 +47,6 @@ impl Pipeline {
                 &[MessageType::Error, MessageType::Eos],
             );
 
-            tracing::debug!("loop");
             use gst::MessageView;
             match msg {
                 Some(msg) => match msg.view() {
@@ -165,31 +164,43 @@ impl Pipeline {
     fn teardown_main(elements: &mut Elements) -> Result<(), InnerError> {
         tracing::info!("teardown main");
 
-        tracing::debug!("teardown main end");
-
         let main_src_pad = elements.main.queue_main_src.static_pad("src").unwrap();
         let pip_src_pad = elements.main.queue_pip_src.static_pad("src").unwrap();
+        let save_src_pad = elements.main.queue_save_src.static_pad("src").unwrap();
 
         if main_src_pad.is_linked() {
             tracing::info!("unlink main to main_sink");
-            let selected_pad: gst::Pad = elements.main_sink.selector.property("active-pad");
-            if selected_pad == elements.main_sink.selector_sink_pad_main {
-                elements
-                    .main
-                    .queue_main_src
-                    .unlink(&elements.main_sink.selector);
-            }
+            elements
+                .main
+                .queue_main_src
+                .unlink(&elements.main_sink.selector);
+            // let selected_pad: gst::Pad = elements.main_sink.selector.property("active-pad");
+            // if selected_pad == elements.main_sink.selector_sink_pad_main {
+            //     elements
+            //         .main
+            //         .queue_main_src
+            //         .unlink(&elements.main_sink.selector);
+            // }
         }
 
         if pip_src_pad.is_linked() {
             tracing::info!("unlink main to pip_sink");
-            let selected_pad: gst::Pad = elements.pip_sink.selector.property("active-pad");
-            if selected_pad == elements.pip_sink.selector_sink_pad_main {
-                elements
-                    .main
-                    .queue_pip_src
-                    .unlink(&elements.pip_sink.selector);
-            }
+            elements
+                .main
+                .queue_pip_src
+                .unlink(&elements.pip_sink.selector);
+            // let selected_pad: gst::Pad = elements.pip_sink.selector.property("active-pad");
+            // if selected_pad == elements.pip_sink.selector_sink_pad_main {
+            //     elements
+            //         .main
+            //         .queue_pip_src
+            //         .unlink(&elements.pip_sink.selector);
+            // }
+        }
+
+        if save_src_pad.is_linked() {
+            tracing::info!("unlink main to save_sink");
+            elements.main.queue_save_src.unlink(&elements.main_save.enc);
         }
 
         // Stop all main elements.

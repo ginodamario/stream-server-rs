@@ -46,7 +46,6 @@ impl GstThread {
             pipeline.set_state(gst::State::Playing);
 
             pipeline.run_loop(|pipeline| {
-                tracing::debug!("run loop callback");
                 let cmd = recv_to_thread.try_recv().unwrap_or(Cmd::None);
                 match cmd {
                     Cmd::None => {}

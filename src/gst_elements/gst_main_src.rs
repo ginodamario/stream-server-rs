@@ -18,7 +18,7 @@ pub(crate) struct MainSrcElements {
 impl ElementTrait for MainSrcElements {
     fn set_state(&self, state: gst::State) -> Result<(), InnerError> {
         for element in self.get_elements() {
-            tracing::debug!("stopping: {element:?}");
+            tracing::debug!("{state:?}: {element:?}");
             element.set_state(state).map_err(InnerError::StateChange)?;
         }
 
@@ -78,7 +78,7 @@ impl MainSrcElements {
         let identity = gst::ElementFactory::make("identity")
             .name("main_id")
             // .property("eos-after", 60)
-            .property("error-after", 60)
+            // .property("error-after", 60)
             .build()
             .map_err(InnerError::GlibBool)?;
         let tee = gst::ElementFactory::make("tee")
