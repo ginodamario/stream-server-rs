@@ -74,6 +74,7 @@ impl Elements {
         self.down.add_to_pipeline(pipeline)?;
         self.main_sink.add_to_pipeline(pipeline)?;
         self.pip_sink.add_to_pipeline(pipeline)?;
+        // main_save added later when saving needs to start.
 
         Ok(())
     }
