@@ -37,8 +37,12 @@ impl GstProbe {
             cnt,
             prev_cnt: 0,
             pad_probe_id,
-            state: State::Running,
+            state: State::Stop,
         }
+    }
+
+    pub(crate) fn start(&mut self) {
+        self.state = State::Running;
     }
 
     pub(crate) fn stop(&mut self) {

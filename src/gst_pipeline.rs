@@ -89,6 +89,8 @@ impl Pipeline {
     pub(crate) fn set_state(&mut self, state: gst::State) {
         self.pipeline.set_state(state).unwrap();
         self.elements.set_state(state);
+        self.main_probe.start();
+        self.down_probe.start();
     }
 
     pub(crate) fn simulate_main_stop(&self) {
@@ -101,13 +103,12 @@ impl Pipeline {
 
     pub(crate) fn set_main_state(&mut self, state: gst::State) {
         self.elements.main.set_state(state).unwrap();
-
-        // Might work.
-        self.elements.main_sink.set_state(state).unwrap();
+        self.main_probe.start();
     }
 
     pub(crate) fn set_down_state(&mut self, state: gst::State) {
         self.elements.down.set_state(state).unwrap();
+        self.down_probe.start();
     }
 
     pub(crate) fn switch_main_sink(&self, source: Source) {
@@ -167,8 +168,13 @@ impl Pipeline {
     fn teardown_main(elements: &mut Elements, pipeline: &gst::Pipeline) -> Result<(), InnerError> {
         tracing::info!("teardown main");
 
+        // gst::Element::unlink_many(elements.main.get_elements());
+
+
         elements.main.src.send_event(gst::event::FlushStart::new());
-        elements.main.src.send_event(gst::event::FlushStop::new(false));
+
+        // Stop all main elements.
+        elements.main.set_state(gst::State::Null).unwrap();
 
         let main_src_pad = elements.main.queue_main_src.static_pad("src").unwrap();
         let pip_src_pad = elements.main.queue_pip_src.static_pad("src").unwrap();
@@ -209,10 +215,7 @@ impl Pipeline {
             elements.main.queue_save_src.unlink(&elements.main_save.enc);
         }
 
-        // elements.main.remove_from_pipeline(pipeline).unwrap();
-
-        // Stop all main elements.
-        elements.main.set_state(gst::State::Null).unwrap();
+        elements.main.src.send_event(gst::event::FlushStop::new(false));
 
         Ok(())
     }

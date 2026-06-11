@@ -78,7 +78,7 @@ impl MainSrcElements {
         let identity = gst::ElementFactory::make("identity")
             .name("main_id")
             .property("eos-after", 300)
-            // .property("error-after", 60)
+            // .property("error-after", 300)
             .build()
             .map_err(InnerError::GlibBool)?;
         let tee = gst::ElementFactory::make("tee")
